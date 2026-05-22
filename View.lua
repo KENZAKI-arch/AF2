@@ -1,59 +1,116 @@
-local Model = _G.Model
-local View = _G.View
+local View = {}
+local Players = game:GetService("Players")
 
--- Fish toggle
-View.fishBtn.MouseButton1Click:Connect(function()
-    Model.isFishing = not Model.isFishing
-    View.setFish(Model.isFishing)
-end)
+local function createToggle(parent, labelText, activeColor, onToggleCallback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 220, 0, 52)
+    btn.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
+    btn.Text = ""
+    btn.Parent = parent
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
 
--- Buy toggle
-View.buyBtn.MouseButton1Click:Connect(function()
-    Model.autoBuyEnabled = not Model.autoBuyEnabled
-    View.setBuy(Model.autoBuyEnabled)
-    if Model.autoBuyEnabled then
-        Model.checkBaitInventory()
-    end
-end)
+    local btnStroke = Instance.new("UIStroke", btn)
+    btnStroke.Color = Color3.fromRGB(50, 50, 65)
 
--- Sell toggle
-View.sellBtn.MouseButton1Click:Connect(function()
-    Model.autoSellEnabled = not Model.autoSellEnabled
-    View.setSell(Model.autoSellEnabled)
-    if Model.autoSellEnabled then
-        Model.checkInventory()
-    end
-end)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -60, 1, 0)
+    label.Position = UDim2.new(0, 12, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = labelText
+    label.TextColor3 = Color3.fromRGB(210, 210, 220)
+    label.Font = Enum.Font.GothamSemibold
+    label.TextSize = 13
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextWrapped = true
+    label.Parent = btn
 
--- Minimize
-local minimized = false
-View.minBtn.MouseButton1Click:Connect(function()
-    minimized = not minimized
-    View.content.Visible = not minimized
-    View.mainFrame.Size = minimized and UDim2.new(0, 260, 0, 40) or UDim2.new(0, 260, 0, 320)
-    View.minBtn.Text = minimized and "+" or "-"
-end)
+    local pill = Instance.new("Frame")
+    pill.Size, pill.Position = UDim2.new(0, 42, 0, 22), UDim2.new(1, -54, 0.5, -11)
+    pill.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
+    pill.Parent = btn
+    Instance.new("UICorner", pill).CornerRadius = UDim.new(1, 0)
 
--- Close
-View.closeBtn.MouseButton1Click:Connect(function()
-    Model.isFishing = false
-    Model.autoBuyEnabled = false
-    Model.autoSellEnabled = false
-    View.screenGui:Destroy()
-end)
+    local knob = Instance.new("Frame")
+    knob.Size, knob.Position = UDim2.new(0, 16, 0, 16), UDim2.new(0, 3, 0.5, -8)
+    knob.BackgroundColor3 = Color3.fromRGB(180, 180, 190)
+    knob.Parent = pill
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
 
--- Status loop
-View.startStatusLoop(function()
+    local isOn = false
+    btn.MouseButton1Click:Connect(function()
+        isOn = not isOn
+        -- Visual updates
+        pill.BackgroundColor3 = isOn and activeColor or Color3.fromRGB(60, 60, 75)
+        knob.Position = isOn and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
+        knob.BackgroundColor3 = isOn and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(180, 180, 190)
+        btnStroke.Color = isOn and activeColor or Color3.fromRGB(50, 50, 65)
+        
+        -- Tell Controller a button was pressed
+        onToggleCallback(isOn)
+    end)
+end
+
+function View.Build(callbacks)
+    local player = Players.LocalPlayer
+    local playerGui = player:WaitForChild("PlayerGui")
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name, screenGui.ResetOnSpawn, screenGui.Parent = "FishingMenu", false, playerGui
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size, mainFrame.Position = UDim2.new(0, 260, 0, 320), UDim2.new(0.5, -130, 0.5, -160)
+    mainFrame.BackgroundColor3, mainFrame.Active, mainFrame.Draggable = Color3.fromRGB(18, 18, 24), true, true
+    mainFrame.Parent = screenGui
+    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 10)
+    
+    local titleBar = Instance.new("Frame")
+    titleBar.Size, titleBar.BackgroundColor3 = UDim2.new(1, 0, 0, 40), Color3.fromRGB(0, 120, 200)
+    titleBar.Parent = mainFrame
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size, titleLabel.Position = UDim2.new(1, -40, 1, 0), UDim2.new(0, 12, 0, 0)
+    titleLabel.BackgroundTransparency, titleLabel.Text, titleLabel.TextColor3 = 1, "Auto Fisher", Color3.fromRGB(255, 255, 255)
+    titleLabel.Font, titleLabel.TextSize = Enum.Font.GothamBold, 16
+    titleLabel.TextXAlignment, titleLabel.Parent = Enum.TextXAlignment.Left, titleBar
+
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size, closeBtn.Position = UDim2.new(0, 28, 0, 28), UDim2.new(1, -36, 0, 6)
+    closeBtn.BackgroundColor3, closeBtn.Text, closeBtn.TextColor3 = Color3.fromRGB(255, 80, 80), "X", Color3.fromRGB(255, 255, 255)
+    closeBtn.Font, closeBtn.Parent = Enum.Font.GothamBold, titleBar
+    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
+
+    local content = Instance.new("Frame")
+    content.Size, content.Position, content.BackgroundTransparency = UDim2.new(1, 0, 1, -40), UDim2.new(0, 0, 0, 40), 1
+    content.Parent = mainFrame
+
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.Padding, listLayout.HorizontalAlignment = UDim.new(0, 10), Enum.HorizontalAlignment.Center
+    listLayout.Parent = content
+
+    local padding = Instance.new("UIPadding")
+    padding.PaddingTop = UDim.new(0, 12)
+    padding.Parent = content
+
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size, statusLabel.BackgroundTransparency, statusLabel.Text = UDim2.new(0, 220, 0, 24), 1, "Status: Idle"
+    statusLabel.TextColor3, statusLabel.Font, statusLabel.TextSize = Color3.fromRGB(120, 120, 140), Enum.Font.Gotham, 12
+    statusLabel.Parent = content
+
+    -- Wire up UI to Controller Callbacks
+    createToggle(content, "Auto Fish\nLovestruck Rod", Color3.fromRGB(0, 180, 255), callbacks.OnFishToggle)
+    createToggle(content, "Auto Buy Bait\nBelow 10 -> Buy 290", Color3.fromRGB(80, 200, 80), callbacks.OnBuyToggle)
+    createToggle(content, "Auto Sell Fish\nFish count >= 40", Color3.fromRGB(255, 160, 0), callbacks.OnSellToggle)
+
+    closeBtn.MouseButton1Click:Connect(function()
+        callbacks.OnClose()
+        screenGui:Destroy()
+    end)
+
     return {
-        isFishing = Model.isFishing,
-        autoBuyEnabled = Model.autoBuyEnabled,
-        autoSellEnabled = Model.autoSellEnabled,
+        UpdateStatus = function(text)
+            statusLabel.Text = text
+        end
     }
-end)
+end
 
--- Start model loops
-Model.startLoops()
-
--- Initial checks
-Model.checkBaitInventory()
-Model.checkInventory()
+return View

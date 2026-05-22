@@ -1,59 +1,64 @@
-local Model = _G.Model
-local View = _G.View
+-- Require the modules (Assumes they are children of this script)
+local Model = require(script:WaitForChild("Model"))
+local View = require(script:WaitForChild("View"))
 
--- Fish toggle
-View.fishBtn.MouseButton1Click:Connect(function()
-    Model.isFishing = not Model.isFishing
-    View.setFish(Model.isFishing)
+-- 1. Setup the UI and provide instructions (callbacks) on what to do when buttons are clicked
+local uiHandle = View.Build({
+    OnFishToggle = function(isOn)
+        Model.State.isFishing = isOn
+    end,
+    OnBuyToggle = function(isOn)
+        Model.State.autoBuy = isOn
+        if isOn then Model.CheckInventory() end
+    end,
+    OnSellToggle = function(isOn)
+        Model.State.autoSell = isOn
+        if isOn then Model.CheckInventory() end
+    end,
+    OnClose = function()
+        Model.State.isFishing = false
+        Model.State.autoBuy = false
+        Model.State.autoSell = false
+    end
+})
+
+-- 2. Hook up Model Events
+Model.ListenToInventoryChanges(function()
+    Model.CheckInventory()
 end)
 
--- Buy toggle
-View.buyBtn.MouseButton1Click:Connect(function()
-    Model.autoBuyEnabled = not Model.autoBuyEnabled
-    View.setBuy(Model.autoBuyEnabled)
-    if Model.autoBuyEnabled then
-        Model.checkBaitInventory()
+-- 3. Run Background Loops
+-- Bait checking loop
+task.spawn(function()
+    while task.wait(2) do
+        if Model.State.autoBuy then
+            Model.CheckInventory()
+        end
     end
 end)
 
--- Sell toggle
-View.sellBtn.MouseButton1Click:Connect(function()
-    Model.autoSellEnabled = not Model.autoSellEnabled
-    View.setSell(Model.autoSellEnabled)
-    if Model.autoSellEnabled then
-        Model.checkInventory()
+-- Fishing engine loop
+task.spawn(function()
+    while true do
+        task.wait()
+        if Model.State.isFishing then
+            Model.DoFishingCycle()
+        end
     end
 end)
 
--- Minimize
-local minimized = false
-View.minBtn.MouseButton1Click:Connect(function()
-    minimized = not minimized
-    View.content.Visible = not minimized
-    View.mainFrame.Size = minimized and UDim2.new(0, 260, 0, 40) or UDim2.new(0, 260, 0, 320)
-    View.minBtn.Text = minimized and "+" or "-"
+-- Status updating loop (Tells the View what text to display)
+task.spawn(function()
+    while task.wait(1) do
+        local parts = {}
+        if Model.State.isFishing then table.insert(parts, "Fishing") end
+        if Model.State.autoBuy then table.insert(parts, "Buying") end
+        if Model.State.autoSell then table.insert(parts, "Selling") end
+        
+        local statusText = #parts > 0 and ("Active: " .. table.concat(parts, "  ")) or "Status: Idle"
+        uiHandle.UpdateStatus(statusText)
+    end
 end)
 
--- Close
-View.closeBtn.MouseButton1Click:Connect(function()
-    Model.isFishing = false
-    Model.autoBuyEnabled = false
-    Model.autoSellEnabled = false
-    View.screenGui:Destroy()
-end)
-
--- Status loop
-View.startStatusLoop(function()
-    return {
-        isFishing = Model.isFishing,
-        autoBuyEnabled = Model.autoBuyEnabled,
-        autoSellEnabled = Model.autoSellEnabled,
-    }
-end)
-
--- Start model loops
-Model.startLoops()
-
--- Initial checks
-Model.checkBaitInventory()
-Model.checkInventory()
+-- Initial check
+Model.CheckInventory()
