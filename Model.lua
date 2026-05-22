@@ -1,4 +1,5 @@
-local Model = {}
+_G.Model = {}
+local Model = _G.Model
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -198,7 +199,6 @@ function Model.doFishingCycle()
 end
 
 function Model.startLoops()
-    -- Fishing loop
     task.spawn(function()
         while true do
             task.wait()
@@ -209,18 +209,14 @@ function Model.startLoops()
         end
     end)
 
-    -- Bait polling loop
     task.spawn(function()
         while task.wait(2) do
             Model.checkBaitInventory()
         end
     end)
 
-    -- Inventory changed connection
     Model.inventoryObj:GetPropertyChangedSignal("Value"):Connect(function()
         Model.checkBaitInventory()
         Model.checkInventory()
     end)
 end
-
-return Model
