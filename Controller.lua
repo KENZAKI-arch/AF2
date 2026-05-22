@@ -7,13 +7,6 @@ local uiHandle = View.Build({
     OnFishToggle = function(isOn)
         Model.State.isFishing = isOn
     end,
-    -- ... (keep the rest of your Controller code exactly the same)
-
--- 1. Setup the UI and provide instructions (callbacks) on what to do when buttons are clicked
-local uiHandle = View.Build({
-    OnFishToggle = function(isOn)
-        Model.State.isFishing = isOn
-    end,
     OnBuyToggle = function(isOn)
         Model.State.autoBuy = isOn
         if isOn then Model.CheckInventory() end
@@ -29,13 +22,12 @@ local uiHandle = View.Build({
     end
 })
 
--- 2. Hook up Model Events
+-- Listen for inventory changes on the client
 Model.ListenToInventoryChanges(function()
     Model.CheckInventory()
 end)
 
--- 3. Run Background Loops
--- Bait checking loop
+-- The background checking loop for buying bait
 task.spawn(function()
     while task.wait(2) do
         if Model.State.autoBuy then
@@ -44,7 +36,7 @@ task.spawn(function()
     end
 end)
 
--- Fishing engine loop
+-- The fishing loop engine
 task.spawn(function()
     while true do
         task.wait()
@@ -54,7 +46,7 @@ task.spawn(function()
     end
 end)
 
--- Status updating loop (Tells the View what text to display)
+-- Status text loop (shows what is currently active)
 task.spawn(function()
     while task.wait(1) do
         local parts = {}
@@ -67,5 +59,5 @@ task.spawn(function()
     end
 end)
 
--- Initial check
+-- Run a quick check right away
 Model.CheckInventory()
