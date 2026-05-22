@@ -1,6 +1,13 @@
--- Require the modules (Assumes they are children of this script)
-local Model = require(script:WaitForChild("Model"))
-local View = require(script:WaitForChild("View"))
+-- Fetch the modules directly from your GitHub
+local Model = loadstring(game:HttpGet("https://raw.githubusercontent.com/KENZAKI-arch/AF2/refs/heads/main/Model.lua"))()
+local View = loadstring(game:HttpGet("https://raw.githubusercontent.com/KENZAKI-arch/AF2/refs/heads/main/View.lua"))()
+
+-- Connect the View (UI) to the Model (Logic)
+local uiHandle = View.Build({
+    OnFishToggle = function(isOn)
+        Model.State.isFishing = isOn
+    end,
+    -- ... (keep the rest of your Controller code exactly the same)
 
 -- 1. Setup the UI and provide instructions (callbacks) on what to do when buttons are clicked
 local uiHandle = View.Build({
