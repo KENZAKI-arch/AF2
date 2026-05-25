@@ -128,7 +128,7 @@ task.spawn(function()
             uiHandle.UpdateStatus("Status: " .. Model.State.travelMessage)
             if Model.State.travelMessage == "Arrived at Bait" or Model.State.travelMessage == "All Baits Full" then
                 
-                -- NEW ADDITION: If we just arrived, and AFK is waiting, start fishing!
+                -- If we just arrived, and AFK is waiting, start fishing!
                 if Model.State.travelMessage == "Arrived at Bait" and Model.State.waitingForArrivalToFish then
                     Model.State.waitingForArrivalToFish = false
                     uiHandle.ForceFishOn()

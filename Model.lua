@@ -29,11 +29,11 @@ local fishToSell = {
     "Tigerfin", "Crimson Polka Puffer"
 }
 
--- The list of rods to look for (Highest priority to lowest)
-local ROD_PRIORITY = {
-    "Devil Fruit Rod",
-    "Merchants Banana Rod",
-    "Lovestruck Rod",
+-- The list of valid rods to look for
+local VALID_RODS = {
+    "Devil Fruit Rod", 
+    "Merchants Banana Rod", 
+    "Lovestruck Rod", 
     "Fishing Rod"
 }
 
@@ -73,28 +73,27 @@ end
 -- ========================================== --
 -- AUTO EQUIP LOGIC
 -- ========================================== --
-function Model.EquipBestRod()
+function Model.EquipRod()
     local character = player.Character
-    local backpack = player:FindFirstChild("Backpack")
     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-    
-    if not character or not backpack or not humanoid then return end
+    if not humanoid then return end
 
-    -- First, check if one of our good rods is ALREADY in your hands
-    for _, rodName in ipairs(ROD_PRIORITY) do
-        local equippedRod = character:FindFirstChild(rodName)
-        if equippedRod and equippedRod:IsA("Tool") then
-            return true -- We are already holding a good rod, no need to do anything!
+    -- 1. Check if a valid rod is already in your hands
+    for _, tool in ipairs(character:GetChildren()) do
+        if tool:IsA("Tool") and table.find(VALID_RODS, tool.Name) then
+            return -- You are already holding it!
         end
     end
 
-    -- If our hands are empty, search the backpack for the best rod and equip it
-    for _, rodName in ipairs(ROD_PRIORITY) do
-        local tool = backpack:FindFirstChild(rodName)
-        if tool and tool:IsA("Tool") then
-            humanoid:EquipTool(tool)
-            task.wait(0.2) -- Give the game a tiny fraction of a second to register it
-            return true
+    -- 2. If not holding one, look in the Backpack and equip the first one we find
+    local backpack = player:FindFirstChild("Backpack")
+    if backpack then
+        for _, tool in ipairs(backpack:GetChildren()) do
+            if tool:IsA("Tool") and table.find(VALID_RODS, tool.Name) then
+                humanoid:EquipTool(tool)
+                task.wait(0.2) -- Give the game a tiny fraction of a second to register it
+                return
+            end
         end
     end
 end
@@ -244,8 +243,8 @@ function Model.DoFishingCycle()
     local character = player.Character
     if not character then return end
     
-    -- NEW: Equip our best rod before doing anything else!
-    Model.EquipBestRod()
+    -- NEW: Automatically check for and equip the rod right before fishing!
+    Model.EquipRod()
     
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     if not rootPart then return end
