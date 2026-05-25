@@ -131,10 +131,12 @@ function View.Build(callbacks)
             statusLabel.Text = text
         end,
         ForceTogglesOn = function()
-            toggleUpdaters.Fish(true, true)
             toggleUpdaters.Buy(true, true)
             toggleUpdaters.Sell(true, true)
             toggleUpdaters.Travel(true, true)
+        end,
+        ForceFishOn = function()
+            toggleUpdaters.Fish(true, true)
         end
     }
 end

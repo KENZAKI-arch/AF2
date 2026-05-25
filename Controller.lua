@@ -67,11 +67,11 @@ task.spawn(function()
             
             -- If 20 seconds pass with no movement, pull the trigger
             if secondsSinceLastInput == 20 then
-                -- This flips the switches on the UI, which instantly starts the logic too!
+                -- Turns on Travel, Buy, and Sell instantly
                 uiHandle.ForceTogglesOn()
                 
-                -- Note: The timer will keep counting up, but since the switches are 
-                -- already flipped, it won't trigger again until you move and stop.
+                -- Leaves a reminder to start fishing once we finish traveling
+                Model.State.waitingForArrivalToFish = true
             end
         end
     end
@@ -127,6 +127,13 @@ task.spawn(function()
         if Model.State.isAutoTraveling or Model.State.travelMessage ~= "" then
             uiHandle.UpdateStatus("Status: " .. Model.State.travelMessage)
             if Model.State.travelMessage == "Arrived at Bait" or Model.State.travelMessage == "All Baits Full" then
+                
+                -- NEW ADDITION: If we just arrived, and AFK is waiting, start fishing!
+                if Model.State.travelMessage == "Arrived at Bait" and Model.State.waitingForArrivalToFish then
+                    Model.State.waitingForArrivalToFish = false
+                    uiHandle.ForceFishOn()
+                end
+                
                 task.delay(3, function() Model.State.travelMessage = "" end)
             end
         else
