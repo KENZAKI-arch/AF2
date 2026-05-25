@@ -1,7 +1,8 @@
 local View = {}
 local Players = game:GetService("Players")
 
-local function createToggle(parent, labelText, activeColor, onToggleCallback)
+-- Notice the new 'startOn' parameter at the end here
+local function createToggle(parent, labelText, activeColor, onToggleCallback, startOn)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 220, 0, 52)
     btn.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
@@ -38,9 +39,8 @@ local function createToggle(parent, labelText, activeColor, onToggleCallback)
 
     local isOn = false
     
-    -- This new function allows the AFK timer to force the switch ON visually
     local function setToggleState(newState, triggerCallback)
-        if isOn == newState then return end -- Don't click it if it's already on
+        if isOn == newState then return end 
         isOn = newState
         
         pill.BackgroundColor3 = isOn and activeColor or Color3.fromRGB(60, 60, 75)
@@ -57,6 +57,12 @@ local function createToggle(parent, labelText, activeColor, onToggleCallback)
         setToggleState(not isOn, true)
     end)
     
+    -- THIS IS THE MAGIC PART: 
+    -- If 'startOn' is true, pre-click the button instantly
+    if startOn then
+        setToggleState(true, true)
+    end
+    
     return setToggleState
 end
 
@@ -68,7 +74,6 @@ function View.Build(callbacks)
     screenGui.Name, screenGui.ResetOnSpawn, screenGui.Parent = "FishingMenu", false, playerGui
 
     local mainFrame = Instance.new("Frame")
-    -- Made the menu taller (440) to fit 5 buttons
     mainFrame.Size, mainFrame.Position = UDim2.new(0, 260, 0, 440), UDim2.new(0.5, -130, 0.5, -220)
     mainFrame.BackgroundColor3, mainFrame.Active, mainFrame.Draggable = Color3.fromRGB(18, 18, 24), true, true
     mainFrame.Parent = screenGui
@@ -107,13 +112,14 @@ function View.Build(callbacks)
     statusLabel.TextColor3, statusLabel.Font, statusLabel.TextSize = Color3.fromRGB(120, 120, 140), Enum.Font.Gotham, 12
     statusLabel.Parent = content
 
-    -- Create all the toggles and save their updater functions
     local toggleUpdaters = {}
-    toggleUpdaters.Fish = createToggle(content, "Auto Fish\nLovestruck Rod", Color3.fromRGB(0, 180, 255), callbacks.OnFishToggle)
-    toggleUpdaters.Buy = createToggle(content, "Auto Buy Bait\nBelow 10 -> Buy 290", Color3.fromRGB(80, 200, 80), callbacks.OnBuyToggle)
-    toggleUpdaters.Sell = createToggle(content, "Auto Sell Fish\nFish count >= 40", Color3.fromRGB(255, 160, 0), callbacks.OnSellToggle)
-    toggleUpdaters.Travel = createToggle(content, "Travel to Bait\nFinds empty spot", Color3.fromRGB(150, 80, 200), callbacks.OnTravelToggle)
-    toggleUpdaters.AFK = createToggle(content, "AFK Mode\nAuto-start after 20s", Color3.fromRGB(255, 60, 100), callbacks.OnAFKToggle)
+    
+    -- Look at the very end of these lines. Change 'false' to 'true' if you want it on by default!
+    toggleUpdaters.Fish = createToggle(content, "Auto Fish\nLovestruck Rod", Color3.fromRGB(0, 180, 255), callbacks.OnFishToggle, false)
+    toggleUpdaters.Buy = createToggle(content, "Auto Buy Bait\nBelow 10 -> Buy 290", Color3.fromRGB(80, 200, 80), callbacks.OnBuyToggle, false)
+    toggleUpdaters.Sell = createToggle(content, "Auto Sell Fish\nFish count >= 40", Color3.fromRGB(255, 160, 0), callbacks.OnSellToggle, false)
+    toggleUpdaters.Travel = createToggle(content, "Travel to Bait\nFinds empty spot", Color3.fromRGB(150, 80, 200), callbacks.OnTravelToggle, false)
+    toggleUpdaters.AFK = createToggle(content, "AFK Mode\nAuto-start after 20s", Color3.fromRGB(255, 60, 100), callbacks.OnAFKToggle, true)
 
     closeBtn.MouseButton1Click:Connect(function()
         callbacks.OnClose()
@@ -124,7 +130,6 @@ function View.Build(callbacks)
         UpdateStatus = function(text)
             statusLabel.Text = text
         end,
-        -- We give the controller a remote control to flip the switches automatically
         ForceTogglesOn = function()
             toggleUpdaters.Fish(true, true)
             toggleUpdaters.Buy(true, true)
