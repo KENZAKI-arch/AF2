@@ -23,7 +23,7 @@ local FISH_WAIT_TIME = 9
 local REEL_ANIMATION_ID = "rbxassetid://136623058564703"
 local REEL_ANIMATION_TIME = 1.2
 
--- The list of rods your script will look for
+-- NEW: The list of rods your script will look for
 local VALID_RODS = {"Fishing Rod", "Lovestruck Rod", "Merchants Banana Rod"}
 
 local fishToSell = {
@@ -65,7 +65,9 @@ local function playAnimation(animationId)
     return track
 end
 
--- Equip Rod Logic
+-- ========================================== --
+-- NEW: EQUIP ROD LOGIC
+-- ========================================== --
 function Model.EquipRod()
     local character = player.Character
     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -90,7 +92,9 @@ function Model.EquipRod()
     end
 end
 
--- Travel and Physics Logic
+-- ========================================== --
+-- TRAVEL AND PHYSICS LOGIC
+-- ========================================== --
 function Model.EnableFlight()
     local character = player.Character
     if not character then return end
@@ -175,7 +179,9 @@ function Model.HandleMovement(deltaTime)
     rootPart.RotVelocity = Vector3.new(0, 0, 0)
 end
 
--- Core Fishing Logic
+-- ========================================== --
+-- CORE FISHING LOGIC
+-- ========================================== --
 function Model.BuyNearestBait()
     if Model.State.isBuying then return end
     Model.State.isBuying = true
@@ -230,10 +236,6 @@ end
 function Model.DoFishingCycle()
     local character = player.Character
     if not character then return end
-    
-    -- Safety check to ensure we hold the rod every cycle
-    Model.EquipRod()
-
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     if not rootPart then return end
 
