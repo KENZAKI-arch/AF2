@@ -23,9 +23,6 @@ local FISH_WAIT_TIME = 9
 local REEL_ANIMATION_ID = "rbxassetid://136623058564703"
 local REEL_ANIMATION_TIME = 1.2
 
--- NEW: The list of rods your script will look for
-local VALID_RODS = {"Fishing Rod", "Lovestruck Rod", "Merchants Banana Rod"}
-
 local fishToSell = {
     "Crimson Snapper", "Exotic Tigerfin", "Fangfish", 
     "Zebra Ribbon Angelfish", "Blue-Lip Grouper", 
@@ -40,7 +37,7 @@ Model.State = {
     isBuying = false,
     isAutoTraveling = false,
     targetPos = nil,
-    travelMessage = ""
+    travelMessage = "" -- Used to tell the UI what we are doing
 }
 
 -- Helper Functions
@@ -63,33 +60,6 @@ local function playAnimation(animationId)
     track.Priority = Enum.AnimationPriority.Action
     track:Play(0.1)
     return track
-end
-
--- ========================================== --
--- NEW: EQUIP ROD LOGIC
--- ========================================== --
-function Model.EquipRod()
-    local character = player.Character
-    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return end
-
-    -- Check if it is already in your hands
-    for _, tool in ipairs(character:GetChildren()) do
-        if tool:IsA("Tool") and table.find(VALID_RODS, tool.Name) then
-            return 
-        end
-    end
-
-    -- Look in the Backpack and equip it
-    local backpack = player:FindFirstChild("Backpack")
-    if backpack then
-        for _, tool in ipairs(backpack:GetChildren()) do
-            if tool:IsA("Tool") and table.find(VALID_RODS, tool.Name) then
-                humanoid:EquipTool(tool)
-                return 
-            end
-        end
-    end
 end
 
 -- ========================================== --
