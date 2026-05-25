@@ -16,8 +16,6 @@ UserInputService.InputChanged:Connect(function() secondsSinceLastInput = 0 end)
 local uiHandle = View.Build({
     OnFishToggle = function(isOn)
         Model.State.isFishing = isOn
-        
-        -- NEW: If the button is turned ON, instantly equip the rod
         if isOn then
             Model.EquipRod()
         end
@@ -50,7 +48,7 @@ local uiHandle = View.Build({
     end,
     OnAFKToggle = function(isOn)
         isAFKModeActive = isOn
-        secondsSinceLastInput = 0 -- Restart the timer as soon as you turn it on
+        secondsSinceLastInput = 0
     end,
     OnClose = function()
         Model.State.isFishing = false
@@ -62,21 +60,13 @@ local uiHandle = View.Build({
     end
 })
 
--- =======================================
--- THE AFK STOPWATCH LOOP
--- =======================================
+-- The AFK Stopwatch Loop
 task.spawn(function()
     while task.wait(1) do
         if isAFKModeActive then
             secondsSinceLastInput = secondsSinceLastInput + 1
-            
-            -- If 20 seconds pass with no movement, pull the trigger
             if secondsSinceLastInput == 20 then
-                -- This flips the switches on the UI, which instantly starts the logic too!
                 uiHandle.ForceTogglesOn()
-                
-                -- Note: The timer will keep counting up, but since the switches are 
-                -- already flipped, it won't trigger again until you move and stop.
             end
         end
     end
@@ -112,10 +102,12 @@ task.spawn(function()
     end
 end)
 
+-- Core Fishing Trigger Loop
 task.spawn(function()
     while true do
         task.wait()
-        if Model.State.isFishing then
+        -- Ensures we only cast the line if we are not actively traveling to a new spot
+        if Model.State.isFishing and not Model.State.isAutoTraveling then
             Model.DoFishingCycle()
         end
     end
