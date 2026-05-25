@@ -34,7 +34,10 @@ Model.State = {
     isFishing = false,
     autoBuy = false,
     autoSell = false,
-    isBuying = false
+    isBuying = false,
+    isAutoTraveling = false,
+    targetPos = nil,
+    travelMessage = "" -- Used to tell the UI what we are doing
 }
 
 -- Helper Functions
@@ -59,7 +62,96 @@ local function playAnimation(animationId)
     return track
 end
 
--- Core Logic Functions
+-- ========================================== --
+-- TRAVEL AND PHYSICS LOGIC
+-- ========================================== --
+function Model.EnableFlight()
+    local character = player.Character
+    if not character then return end
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChild("Humanoid")
+    
+    if rootPart and humanoid then
+        humanoid.PlatformStand = true 
+        local bg = rootPart:FindFirstChild("AutoTravel_Gyro") or Instance.new("BodyGyro")
+        bg.Name, bg.P, bg.MaxTorque, bg.CFrame, bg.Parent = "AutoTravel_Gyro", 9e4, Vector3.new(9e9, 9e9, 9e9), rootPart.CFrame, rootPart
+        
+        local bv = rootPart:FindFirstChild("AutoTravel_Velocity") or Instance.new("BodyVelocity")
+        bv.Name, bv.Velocity, bv.MaxForce, bv.Parent = "AutoTravel_Velocity", Vector3.new(0, 0, 0), Vector3.new(9e9, 9e9, 9e9), rootPart
+    end
+end
+
+function Model.DisableFlight()
+    local character = player.Character
+    if not character then return end
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChild("Humanoid")
+    
+    if rootPart then
+        local bg = rootPart:FindFirstChild("AutoTravel_Gyro")
+        if bg then bg:Destroy() end
+        local bv = rootPart:FindFirstChild("AutoTravel_Velocity")
+        if bv then bv:Destroy() end
+    end
+    if humanoid then humanoid.PlatformStand = false end
+end
+
+function Model.GetFreeBaitPosition()
+    if not buyableItems then return nil end
+    for _, item in pairs(buyableItems:GetChildren()) do
+        if item.Name == BAIT_NAME then
+            local baitCFrame = item:IsA("Model") and item.PrimaryPart.CFrame or item.CFrame
+            local spotInFront = (baitCFrame * CFrame.new(0, 0, -3)).Position
+            local isOccupied = false
+
+            for _, plr in pairs(Players:GetPlayers()) do
+                if plr ~= player and plr.Character then
+                    local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                    if root and (root.Position - spotInFront).Magnitude < 4 then
+                        isOccupied = true
+                        break
+                    end
+                end
+            end
+            if not isOccupied then return spotInFront end
+        end
+    end
+    return nil
+end
+
+function Model.HandleMovement(deltaTime)
+    local rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not rootPart or not Model.State.targetPos then return end
+
+    local currentPos = rootPart.Position
+    local target = Model.State.targetPos
+    local nextPoint
+    
+    if math.abs(currentPos.X - target.X) > 1 then
+        nextPoint = Vector3.new(target.X, currentPos.Y, currentPos.Z)
+    elseif math.abs(currentPos.Z - target.Z) > 1 then
+        nextPoint = Vector3.new(target.X, currentPos.Y, target.Z)
+    elseif math.abs(currentPos.Y - target.Y) > 1 then
+        nextPoint = Vector3.new(target.X, target.Y, target.Z)
+    else
+        Model.State.isAutoTraveling = false
+        Model.DisableFlight()
+        Model.State.travelMessage = "Arrived at Bait"
+        return
+    end
+
+    local distance = (currentPos - nextPoint).Magnitude
+    if distance > 0 then
+        local alpha = math.clamp((90 * deltaTime) / distance, 0, 1)
+        rootPart.CFrame = rootPart.CFrame:Lerp(CFrame.new(nextPoint), alpha)
+    end
+    rootPart.Velocity = Vector3.new(0, 0, 0)
+    rootPart.RotVelocity = Vector3.new(0, 0, 0)
+end
+
+-- ========================================== --
+-- CORE FISHING LOGIC
+-- ========================================== --
 function Model.BuyNearestBait()
     if Model.State.isBuying then return end
     Model.State.isBuying = true
@@ -84,11 +176,8 @@ function Model.BuyNearestBait()
 
     if nearestBait then
         pcall(function()
-            if shopEvent:IsA("RemoteFunction") then
-                shopEvent:InvokeServer(nearestBait, BUY_AMOUNT)
-            else
-                shopEvent:FireServer(nearestBait, BUY_AMOUNT)
-            end
+            if shopEvent:IsA("RemoteFunction") then shopEvent:InvokeServer(nearestBait, BUY_AMOUNT)
+            else shopEvent:FireServer(nearestBait, BUY_AMOUNT) end
         end)
     end
     task.wait(0.5)
@@ -96,25 +185,19 @@ function Model.BuyNearestBait()
 end
 
 function Model.CheckInventory()
-    local success, inventoryData = pcall(function()
-        return HttpService:JSONDecode(inventoryObj.Value)
-    end)
+    local success, inventoryData = pcall(function() return HttpService:JSONDecode(inventoryObj.Value) end)
     if not success or not inventoryData then return end
 
-    -- Check Bait
     if Model.State.autoBuy and not Model.State.isBuying then
         local count = inventoryData[BAIT_NAME] or 0
         if count < MIN_BAIT then Model.BuyNearestBait() end
     end
 
-    -- Check Fish
     if Model.State.autoSell then
         for _, fishName in ipairs(fishToSell) do
             local count = inventoryData[fishName] or 0
             if count >= 40 then
-                pcall(function()
-                    sellEvent:InvokeServer({Fish = fishName, All = true, Method = "SellFish"})
-                end)
+                pcall(function() sellEvent:InvokeServer({Fish = fishName, All = true, Method = "SellFish"}) end)
             end
         end
     end
@@ -128,14 +211,10 @@ function Model.DoFishingCycle()
 
     local throwGoal = rootPart.Position + (rootPart.CFrame.LookVector * 20) + Vector3.new(0, -5, 0)
 
-    pcall(function()
-        Remote:InvokeServer({Bait = BAIT_NAME, Action = "Throw", Goal = throwGoal})
-    end)
+    pcall(function() Remote:InvokeServer({Bait = BAIT_NAME, Action = "Throw", Goal = throwGoal}) end)
 
     local throwTrack = playAnimation(THROW_ANIMATION_ID)
-    if throwTrack then
-        task.delay(THROW_ANIMATION_TIME, function() throwTrack:Stop(0.15) end)
-    end
+    if throwTrack then task.delay(THROW_ANIMATION_TIME, function() throwTrack:Stop(0.15) end) end
 
     task.wait(FISH_WAIT_TIME)
 
