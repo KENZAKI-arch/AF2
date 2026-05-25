@@ -16,6 +16,11 @@ UserInputService.InputChanged:Connect(function() secondsSinceLastInput = 0 end)
 local uiHandle = View.Build({
     OnFishToggle = function(isOn)
         Model.State.isFishing = isOn
+        
+        -- NEW: If the button is turned ON, instantly equip the rod
+        if isOn then
+            Model.EquipRod()
+        end
     end,
     OnBuyToggle = function(isOn)
         Model.State.autoBuy = isOn
