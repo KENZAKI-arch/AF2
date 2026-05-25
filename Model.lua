@@ -29,6 +29,14 @@ local fishToSell = {
     "Tigerfin", "Crimson Polka Puffer"
 }
 
+-- The list of rods to look for (Highest priority to lowest)
+local ROD_PRIORITY = {
+    "Devil Fruit Rod",
+    "Merchants Banana Rod",
+    "Lovestruck Rod",
+    "Fishing Rod"
+}
+
 -- State Data
 Model.State = {
     isFishing = false,
@@ -37,7 +45,7 @@ Model.State = {
     isBuying = false,
     isAutoTraveling = false,
     targetPos = nil,
-    travelMessage = "" -- Used to tell the UI what we are doing
+    travelMessage = ""
 }
 
 -- Helper Functions
@@ -60,6 +68,35 @@ local function playAnimation(animationId)
     track.Priority = Enum.AnimationPriority.Action
     track:Play(0.1)
     return track
+end
+
+-- ========================================== --
+-- AUTO EQUIP LOGIC
+-- ========================================== --
+function Model.EquipBestRod()
+    local character = player.Character
+    local backpack = player:FindFirstChild("Backpack")
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    
+    if not character or not backpack or not humanoid then return end
+
+    -- First, check if one of our good rods is ALREADY in your hands
+    for _, rodName in ipairs(ROD_PRIORITY) do
+        local equippedRod = character:FindFirstChild(rodName)
+        if equippedRod and equippedRod:IsA("Tool") then
+            return true -- We are already holding a good rod, no need to do anything!
+        end
+    end
+
+    -- If our hands are empty, search the backpack for the best rod and equip it
+    for _, rodName in ipairs(ROD_PRIORITY) do
+        local tool = backpack:FindFirstChild(rodName)
+        if tool and tool:IsA("Tool") then
+            humanoid:EquipTool(tool)
+            task.wait(0.2) -- Give the game a tiny fraction of a second to register it
+            return true
+        end
+    end
 end
 
 -- ========================================== --
@@ -206,6 +243,10 @@ end
 function Model.DoFishingCycle()
     local character = player.Character
     if not character then return end
+    
+    -- NEW: Equip our best rod before doing anything else!
+    Model.EquipBestRod()
+    
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     if not rootPart then return end
 
