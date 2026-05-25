@@ -39,13 +39,11 @@ local function createToggle(parent, labelText, activeColor, onToggleCallback)
     local isOn = false
     btn.MouseButton1Click:Connect(function()
         isOn = not isOn
-        -- Visual updates
         pill.BackgroundColor3 = isOn and activeColor or Color3.fromRGB(60, 60, 75)
         knob.Position = isOn and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
         knob.BackgroundColor3 = isOn and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(180, 180, 190)
         btnStroke.Color = isOn and activeColor or Color3.fromRGB(50, 50, 65)
         
-        -- Tell Controller a button was pressed
         onToggleCallback(isOn)
     end)
 end
@@ -58,7 +56,7 @@ function View.Build(callbacks)
     screenGui.Name, screenGui.ResetOnSpawn, screenGui.Parent = "FishingMenu", false, playerGui
 
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size, mainFrame.Position = UDim2.new(0, 260, 0, 320), UDim2.new(0.5, -130, 0.5, -160)
+    mainFrame.Size, mainFrame.Position = UDim2.new(0, 260, 0, 380), UDim2.new(0.5, -130, 0.5, -190)
     mainFrame.BackgroundColor3, mainFrame.Active, mainFrame.Draggable = Color3.fromRGB(18, 18, 24), true, true
     mainFrame.Parent = screenGui
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 10)
@@ -96,10 +94,11 @@ function View.Build(callbacks)
     statusLabel.TextColor3, statusLabel.Font, statusLabel.TextSize = Color3.fromRGB(120, 120, 140), Enum.Font.Gotham, 12
     statusLabel.Parent = content
 
-    -- Wire up UI to Controller Callbacks
+    -- Toggles
     createToggle(content, "Auto Fish\nLovestruck Rod", Color3.fromRGB(0, 180, 255), callbacks.OnFishToggle)
     createToggle(content, "Auto Buy Bait\nBelow 10 -> Buy 290", Color3.fromRGB(80, 200, 80), callbacks.OnBuyToggle)
     createToggle(content, "Auto Sell Fish\nFish count >= 40", Color3.fromRGB(255, 160, 0), callbacks.OnSellToggle)
+    createToggle(content, "Travel to Bait\nFinds empty spot", Color3.fromRGB(150, 80, 200), callbacks.OnTravelToggle)
 
     closeBtn.MouseButton1Click:Connect(function()
         callbacks.OnClose()
