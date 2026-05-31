@@ -133,6 +133,7 @@ end
 function Model.GetFreeBaitPosition()
     if not buyableItems then return nil end
     
+    -- Hub Fence: Find the exact center of the Fishing Hub Island
     local islandsFolder = workspace:FindFirstChild("Islands")
     local fishingHub = islandsFolder and islandsFolder:FindFirstChild("Fishing Hub")
     local hubCenterPos = nil
@@ -151,14 +152,13 @@ function Model.GetFreeBaitPosition()
             
             local isLocalBait = true
             
-            -- CHECK: Is it too far from the hub?
+            -- CHECK: Is it too far from the hub? (Prevents flying to other islands)
             if hubCenterPos and (baitPosition - hubCenterPos).Magnitude > 1000 then
                 isLocalBait = false
             end
             
             if isLocalBait then
-                -- THE FIX: Instead of standing "in front" (which might be the water), 
-                -- we calculate a spot 4 studs directly ABOVE the bait. You will stand on it like a pedestal.
+                -- THE PEDESTAL TARGET: Calculates a safe spot exactly 4 studs ABOVE the bait
                 local safeSpot = baitPosition + Vector3.new(0, 4, 0)
                 local isOccupied = false
 
@@ -187,26 +187,18 @@ function Model.HandleMovement(deltaTime)
     local target = Model.State.targetPos
     local nextPoint
     
-    -- THE HELICOPTER PATH: Fly 40 studs above the bait to clear the pond entirely
-    local travelHeight = target.Y + 40
-    
-    -- Measure how far we are horizontally (ignoring height)
-    local distXZ = Vector2.new(currentPos.X - target.X, currentPos.Z - target.Z).Magnitude
-    
-    if distXZ > 2 then
-        -- We need to move across the island
-        if currentPos.Y < travelHeight - 2 then
-            -- Stage 1: Fly straight UP into the air first
-            nextPoint = Vector3.new(currentPos.X, travelHeight, currentPos.Z)
-        else
-            -- Stage 2: Fly straight ACROSS the sky (safely over the water)
-            nextPoint = Vector3.new(target.X, currentPos.Y, target.Z)
-        end
+    -- Simple Straight-Line Lerp Logic (X -> Z -> Y)
+    if math.abs(currentPos.X - target.X) > 1 then
+        nextPoint = Vector3.new(target.X, currentPos.Y, currentPos.Z)
+        
+    elseif math.abs(currentPos.Z - target.Z) > 1 then
+        nextPoint = Vector3.new(target.X, currentPos.Y, target.Z)
+        
     elseif math.abs(currentPos.Y - target.Y) > 1 then
-        -- Stage 3: We are right above the bait. Drop straight DOWN.
         nextPoint = Vector3.new(target.X, target.Y, target.Z)
+        
     else
-        -- Arrived!
+        -- Arrived exactly on the pedestal!
         Model.State.isAutoTraveling = false
         Model.DisableFlight()
         Model.State.travelMessage = "Arrived at Bait"
