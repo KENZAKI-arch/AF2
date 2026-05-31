@@ -78,20 +78,18 @@ function Model.EquipRod()
     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
     if not humanoid then return end
 
-    -- 1. Check if a valid rod is already in your hands
     for _, tool in ipairs(character:GetChildren()) do
         if tool:IsA("Tool") and table.find(VALID_RODS, tool.Name) then
-            return -- You are already holding it!
+            return 
         end
     end
 
-    -- 2. If not holding one, look in the Backpack and equip the first one we find
     local backpack = player:FindFirstChild("Backpack")
     if backpack then
         for _, tool in ipairs(backpack:GetChildren()) do
             if tool:IsA("Tool") and table.find(VALID_RODS, tool.Name) then
                 humanoid:EquipTool(tool)
-                task.wait(0.2) -- Give the game a tiny fraction of a second to register it
+                task.wait(0.2) 
                 return
             end
         end
@@ -134,31 +132,50 @@ end
 
 function Model.GetFreeBaitPosition()
     if not buyableItems then return nil end
+    
+    -- NEW FENCE LOGIC: Find the exact center of the Fishing Hub Island
+    local islandsFolder = workspace:FindFirstChild("Islands")
+    local fishingHub = islandsFolder and islandsFolder:FindFirstChild("Fishing Hub")
+    local hubCenterPos = nil
+    
+    if fishingHub then
+        local hubPart = fishingHub:IsA("Model") and fishingHub.PrimaryPart or fishingHub:FindFirstChildWhichIsA("BasePart", true)
+        if hubPart then
+            hubCenterPos = hubPart.Position
+        end
+    end
+
     for _, item in pairs(buyableItems:GetChildren()) do
         if item.Name == BAIT_NAME then
             local baitCFrame = item:IsA("Model") and item.PrimaryPart.CFrame or item.CFrame
-            
-            -- Where YOU will teleport to
-            local spotInFront = (baitCFrame * CFrame.new(0, 0, -3)).Position
-            
-            -- Where the radar is centered (the physical bait itself)
             local baitPosition = baitCFrame.Position
             
-            local isOccupied = false
-
-            for _, plr in pairs(Players:GetPlayers()) do
-                if plr ~= player and plr.Character then
-                    local root = plr.Character:FindFirstChild("HumanoidRootPart")
-                    
-                    -- The wider radar check: 12 studs around the bait box
-                    if root and (root.Position - baitPosition).Magnitude < 12 then
-                        isOccupied = true
-                        break
-                    end
+            -- NEW FENCE LOGIC: Is this bait actually ON the Fishing Hub?
+            local isLocalBait = true
+            if hubCenterPos then
+                -- If the bait is more than 1000 studs away from the island's center, it's out in the ocean or on another island!
+                if (baitPosition - hubCenterPos).Magnitude > 1000 then
+                    isLocalBait = false
                 end
             end
             
-            if not isOccupied then return spotInFront end
+            -- Only run the player radar if the bait passed the fence check
+            if isLocalBait then
+                local spotInFront = (baitCFrame * CFrame.new(0, 0, -3)).Position
+                local isOccupied = false
+
+                for _, plr in pairs(Players:GetPlayers()) do
+                    if plr ~= player and plr.Character then
+                        local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                        if root and (root.Position - baitPosition).Magnitude < 12 then
+                            isOccupied = true
+                            break
+                        end
+                    end
+                end
+                
+                if not isOccupied then return spotInFront end
+            end
         end
     end
     return nil
@@ -252,7 +269,6 @@ function Model.DoFishingCycle()
     local character = player.Character
     if not character then return end
     
-    -- NEW: Automatically check for and equip the rod right before fishing!
     Model.EquipRod()
     
     local rootPart = character:FindFirstChild("HumanoidRootPart")
