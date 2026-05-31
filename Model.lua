@@ -137,18 +137,27 @@ function Model.GetFreeBaitPosition()
     for _, item in pairs(buyableItems:GetChildren()) do
         if item.Name == BAIT_NAME then
             local baitCFrame = item:IsA("Model") and item.PrimaryPart.CFrame or item.CFrame
+            
+            -- Where YOU will teleport to
             local spotInFront = (baitCFrame * CFrame.new(0, 0, -3)).Position
+            
+            -- Where the radar is centered (the physical bait itself)
+            local baitPosition = baitCFrame.Position
+            
             local isOccupied = false
 
             for _, plr in pairs(Players:GetPlayers()) do
                 if plr ~= player and plr.Character then
                     local root = plr.Character:FindFirstChild("HumanoidRootPart")
-                    if root and (root.Position - spotInFront).Magnitude < 4 then
+                    
+                    -- The wider radar check: 12 studs around the bait box
+                    if root and (root.Position - baitPosition).Magnitude < 12 then
                         isOccupied = true
                         break
                     end
                 end
             end
+            
             if not isOccupied then return spotInFront end
         end
     end
