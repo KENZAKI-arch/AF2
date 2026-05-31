@@ -133,7 +133,6 @@ end
 function Model.GetFreeBaitPosition()
     if not buyableItems then return nil end
     
-    -- NEW FENCE LOGIC: Find the exact center of the Fishing Hub Island
     local islandsFolder = workspace:FindFirstChild("Islands")
     local fishingHub = islandsFolder and islandsFolder:FindFirstChild("Fishing Hub")
     local hubCenterPos = nil
@@ -150,18 +149,17 @@ function Model.GetFreeBaitPosition()
             local baitCFrame = item:IsA("Model") and item.PrimaryPart.CFrame or item.CFrame
             local baitPosition = baitCFrame.Position
             
-            -- NEW FENCE LOGIC: Is this bait actually ON the Fishing Hub?
             local isLocalBait = true
-            if hubCenterPos then
-                -- If the bait is more than 1000 studs away from the island's center, it's out in the ocean or on another island!
-                if (baitPosition - hubCenterPos).Magnitude > 1000 then
-                    isLocalBait = false
-                end
+            
+            -- CHECK: Is it too far from the hub?
+            if hubCenterPos and (baitPosition - hubCenterPos).Magnitude > 1000 then
+                isLocalBait = false
             end
             
-            -- Only run the player radar if the bait passed the fence check
             if isLocalBait then
-                local spotInFront = (baitCFrame * CFrame.new(0, 0, -3)).Position
+                -- THE FIX: Instead of standing "in front" (which might be the water), 
+                -- we calculate a spot 4 studs directly ABOVE the bait. You will stand on it like a pedestal.
+                local safeSpot = baitPosition + Vector3.new(0, 4, 0)
                 local isOccupied = false
 
                 for _, plr in pairs(Players:GetPlayers()) do
@@ -174,7 +172,7 @@ function Model.GetFreeBaitPosition()
                     end
                 end
                 
-                if not isOccupied then return spotInFront end
+                if not isOccupied then return safeSpot end
             end
         end
     end
@@ -189,13 +187,26 @@ function Model.HandleMovement(deltaTime)
     local target = Model.State.targetPos
     local nextPoint
     
-    if math.abs(currentPos.X - target.X) > 1 then
-        nextPoint = Vector3.new(target.X, currentPos.Y, currentPos.Z)
-    elseif math.abs(currentPos.Z - target.Z) > 1 then
-        nextPoint = Vector3.new(target.X, currentPos.Y, target.Z)
+    -- THE HELICOPTER PATH: Fly 40 studs above the bait to clear the pond entirely
+    local travelHeight = target.Y + 40
+    
+    -- Measure how far we are horizontally (ignoring height)
+    local distXZ = Vector2.new(currentPos.X - target.X, currentPos.Z - target.Z).Magnitude
+    
+    if distXZ > 2 then
+        -- We need to move across the island
+        if currentPos.Y < travelHeight - 2 then
+            -- Stage 1: Fly straight UP into the air first
+            nextPoint = Vector3.new(currentPos.X, travelHeight, currentPos.Z)
+        else
+            -- Stage 2: Fly straight ACROSS the sky (safely over the water)
+            nextPoint = Vector3.new(target.X, currentPos.Y, target.Z)
+        end
     elseif math.abs(currentPos.Y - target.Y) > 1 then
+        -- Stage 3: We are right above the bait. Drop straight DOWN.
         nextPoint = Vector3.new(target.X, target.Y, target.Z)
     else
+        -- Arrived!
         Model.State.isAutoTraveling = false
         Model.DisableFlight()
         Model.State.travelMessage = "Arrived at Bait"
@@ -207,6 +218,7 @@ function Model.HandleMovement(deltaTime)
         local alpha = math.clamp((90 * deltaTime) / distance, 0, 1)
         rootPart.CFrame = rootPart.CFrame:Lerp(CFrame.new(nextPoint), alpha)
     end
+    
     rootPart.Velocity = Vector3.new(0, 0, 0)
     rootPart.RotVelocity = Vector3.new(0, 0, 0)
 end
