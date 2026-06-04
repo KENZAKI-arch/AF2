@@ -133,7 +133,6 @@ end
 function Model.GetFreeBaitPosition()
     if not buyableItems then return nil end
     
-    -- Hub Fence: Find the exact center of the Fishing Hub Island
     local islandsFolder = workspace:FindFirstChild("Islands")
     local fishingHub = islandsFolder and islandsFolder:FindFirstChild("Fishing Hub")
     local hubCenterPos = nil
@@ -151,14 +150,11 @@ function Model.GetFreeBaitPosition()
             local baitPosition = baitCFrame.Position
             
             local isLocalBait = true
-            
-            -- CHECK: Is it too far from the hub? (Prevents flying to other islands)
             if hubCenterPos and (baitPosition - hubCenterPos).Magnitude > 1000 then
                 isLocalBait = false
             end
             
             if isLocalBait then
-                -- THE PEDESTAL TARGET: Calculates a safe spot exactly 4 studs ABOVE the bait
                 local safeSpot = baitPosition + Vector3.new(0, 4, 0)
                 local isOccupied = false
 
@@ -187,18 +183,13 @@ function Model.HandleMovement(deltaTime)
     local target = Model.State.targetPos
     local nextPoint
     
-    -- Simple Straight-Line Lerp Logic (X -> Z -> Y)
     if math.abs(currentPos.X - target.X) > 1 then
         nextPoint = Vector3.new(target.X, currentPos.Y, currentPos.Z)
-        
     elseif math.abs(currentPos.Z - target.Z) > 1 then
         nextPoint = Vector3.new(target.X, currentPos.Y, target.Z)
-        
     elseif math.abs(currentPos.Y - target.Y) > 1 then
         nextPoint = Vector3.new(target.X, target.Y, target.Z)
-        
     else
-        -- Arrived exactly on the pedestal!
         Model.State.isAutoTraveling = false
         Model.DisableFlight()
         Model.State.travelMessage = "Arrived at Bait"
@@ -270,6 +261,7 @@ function Model.CheckInventory()
 end
 
 function Model.DoFishingCycle()
+    print("[AutoFisher] Starting new fishing cycle...")
     local character = player.Character
     if not character then return end
     
@@ -280,33 +272,41 @@ function Model.DoFishingCycle()
 
     local throwGoal = rootPart.Position + (rootPart.CFrame.LookVector * 20) + Vector3.new(0, -5, 0)
 
+    print("[AutoFisher] Throwing bait...")
     pcall(function() Remote:InvokeServer({Bait = BAIT_NAME, Action = "Throw", Goal = throwGoal}) end)
 
     local throwTrack = playAnimation(THROW_ANIMATION_ID)
     if throwTrack then task.delay(THROW_ANIMATION_TIME, function() throwTrack:Stop(0.15) end) end
 
     -- === SMART FISH DETECTION ===
-    -- 1. Find the hook in the water
     local hookName = player.Name .. "'s hook"
-    local hook = workspace.Effects:WaitForChild(hookName, 3) -- Wait up to 3 seconds for it to spawn
+    print("[AutoFisher] Looking for hook: " .. hookName)
+    local hook = workspace.Effects:WaitForChild(hookName, 3) 
     
     if hook then
-        -- 2. Keep watching the hook for up to 15 seconds max (safety net so it doesn't freeze)
+        print("[AutoFisher] Hook found! Waiting for a bite...")
         local maxWaitTime = 15 
         local timeWaited = 0
+        local fishDidBite = false
         
         while timeWaited < maxWaitTime do
-            -- 3. Check the "sticky note" to see if a fish bit right now
             if hook:GetAttribute("Caught") == true then
-                task.wait(3) -- Added: Wait exactly 3 seconds after the fish bites
-                break -- Now stop waiting and proceed to reel it in.
+                print("[AutoFisher] FISH BITE DETECTED! Waiting 3 seconds...")
+                task.wait(3)
+                print("[AutoFisher] 3 seconds over! Reeling it in!")
+                fishDidBite = true
+                break 
             end
             
-            task.wait(0.1) -- Wait just a tiny moment, then check again
+            task.wait(0.1) 
             timeWaited = timeWaited + 0.1
         end
+
+        if not fishDidBite then
+            print("[AutoFisher] Waited 15 seconds but nothing bit. Reeling in anyway.")
+        end
     else
-        -- Fallback: If the hook didn't load properly, just do the normal 9-second wait
+        print("[AutoFisher] WARNING: Could not find the hook! Doing a standard 9-second wait instead.")
         task.wait(FISH_WAIT_TIME)
     end
     -- ============================
@@ -314,10 +314,12 @@ function Model.DoFishingCycle()
     local reelTrack = playAnimation(REEL_ANIMATION_ID)
     task.wait(REEL_ANIMATION_TIME)
 
+    print("[AutoFisher] Triggering Reel Action...")
     pcall(function() Remote:InvokeServer({ Action = "Reel" }) end)
     if reelTrack then reelTrack:Stop(0.2) end
     task.wait(0.2)
     pcall(function() Remote:InvokeServer({ Action = "Cancel" }) end)
+    print("[AutoFisher] Cycle finished.")
 end
 
 function Model.ListenToInventoryChanges(callback)
