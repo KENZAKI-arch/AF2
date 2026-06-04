@@ -1,18 +1,25 @@
--- === KILL SWITCH TO PREVENT DUPLICATION ===
-if _G.AutoFisherRunning then
-    -- Turn off the old UI and stop old loops
-    _G.AutoFisherRunning = false 
+-- === 1. KILL SWITCH: DESTROY OLD VERSIONS ===
+if _G.AF2_Running then
+    _G.AF2_Running = false -- Tells all old loops to stop dead in their tracks
     
-    local oldGui = game.Players.LocalPlayer.PlayerGui:FindFirstChild("FishingMenu")
-    if oldGui then oldGui:Destroy() end
+    -- Disconnect old background events
+    if _G.AF2_Connections then
+        for _, conn in pairs(_G.AF2_Connections) do
+            pcall(function() conn:Disconnect() end)
+        end
+    end
     
-    task.wait(0.5) -- Give the old script half a second to completely shut down
+    -- Destroy old menu if it exists
+    local oldMenu = game.Players.LocalPlayer.PlayerGui:FindFirstChild("FishingMenu")
+    if oldMenu then oldMenu:Destroy() end
+    
+    task.wait(0.5) -- Give the game half a second to clear out the ghosts
 end
 
-_G.AutoFisherRunning = true
--- ==========================================
-
--- (Your normal loadstrings or Controller code goes here)
+-- Start fresh for the new version
+_G.AF2_Running = true
+_G.AF2_Connections = {}
+-- ============================================
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -26,8 +33,9 @@ local isAFKModeActive = false
 local secondsSinceLastInput = 0
 
 -- Reset the stopwatch whenever the player moves their mouse or types
-UserInputService.InputBegan:Connect(function() secondsSinceLastInput = 0 end)
-UserInputService.InputChanged:Connect(function() secondsSinceLastInput = 0 end)
+-- We save these connections so the kill switch can delete them later!
+table.insert(_G.AF2_Connections, UserInputService.InputBegan:Connect(function() secondsSinceLastInput = 0 end))
+table.insert(_G.AF2_Connections, UserInputService.InputChanged:Connect(function() secondsSinceLastInput = 0 end))
 
 local uiHandle = View.Build({
     OnFishToggle = function(isOn)
@@ -61,7 +69,7 @@ local uiHandle = View.Build({
     end,
     OnAFKToggle = function(isOn)
         isAFKModeActive = isOn
-        secondsSinceLastInput = 0 -- Restart the timer as soon as you turn it on
+        secondsSinceLastInput = 0 
     end,
     OnClose = function()
         Model.State.isFishing = false
@@ -78,15 +86,13 @@ local uiHandle = View.Build({
 -- =======================================
 task.spawn(function()
     while task.wait(1) do
+        if not _G.AF2_Running then break end -- Kill Switch: Stops old version
+
         if isAFKModeActive then
             secondsSinceLastInput = secondsSinceLastInput + 1
             
-            -- If 20 seconds pass with no movement, pull the trigger
             if secondsSinceLastInput == 20 then
-                -- Turns on Travel, Buy, and Sell instantly
                 uiHandle.ForceTogglesOn()
-                
-                -- Leaves a reminder to start fishing once we finish traveling
                 Model.State.waitingForArrivalToFish = true
             end
         end
@@ -94,7 +100,7 @@ task.spawn(function()
 end)
 
 -- Travel Loop & Noclip
-RunService.Stepped:Connect(function()
+table.insert(_G.AF2_Connections, RunService.Stepped:Connect(function()
     if Model.State.isAutoTraveling then
         local char = Players.LocalPlayer.Character
         if char then
@@ -103,13 +109,13 @@ RunService.Stepped:Connect(function()
             end
         end
     end
-end)
+end))
 
-RunService.Heartbeat:Connect(function(deltaTime)
+table.insert(_G.AF2_Connections, RunService.Heartbeat:Connect(function(deltaTime)
     if Model.State.isAutoTraveling then
         Model.HandleMovement(deltaTime)
     end
-end)
+end))
 
 Model.ListenToInventoryChanges(function()
     Model.CheckInventory()
@@ -117,6 +123,7 @@ end)
 
 task.spawn(function()
     while task.wait(2) do
+        if not _G.AF2_Running then break end -- Kill Switch
         if Model.State.autoBuy then
             Model.CheckInventory()
         end
@@ -124,8 +131,8 @@ task.spawn(function()
 end)
 
 task.spawn(function()
-    while true do
-        task.wait()
+    while task.wait() do
+        if not _G.AF2_Running then break end -- Kill Switch
         if Model.State.isFishing then
             Model.DoFishingCycle()
         end
@@ -134,6 +141,8 @@ end)
 
 task.spawn(function()
     while task.wait(1) do
+        if not _G.AF2_Running then break end -- Kill Switch
+
         local parts = {}
         if Model.State.isFishing then table.insert(parts, "Fishing") end
         if Model.State.autoBuy then table.insert(parts, "Buying") end
@@ -144,7 +153,6 @@ task.spawn(function()
             uiHandle.UpdateStatus("Status: " .. Model.State.travelMessage)
             if Model.State.travelMessage == "Arrived at Bait" or Model.State.travelMessage == "All Baits Full" then
                 
-                -- If we just arrived, and AFK is waiting, start fishing!
                 if Model.State.travelMessage == "Arrived at Bait" and Model.State.waitingForArrivalToFish then
                     Model.State.waitingForArrivalToFish = false
                     uiHandle.ForceFishOn()
