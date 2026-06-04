@@ -29,7 +29,6 @@ local fishToSell = {
     "Tigerfin", "Crimson Polka Puffer"
 }
 
--- The list of valid rods to look for
 local VALID_RODS = {
     "Devil Fruit Rod", 
     "Merchants Banana Rod", 
@@ -37,7 +36,6 @@ local VALID_RODS = {
     "Fishing Rod"
 }
 
--- State Data
 Model.State = {
     isFishing = false,
     autoBuy = false,
@@ -48,7 +46,6 @@ Model.State = {
     travelMessage = ""
 }
 
--- Helper Functions
 local function getItemPosition(item)
     if item:IsA("BasePart") then return item.Position end
     if item:IsA("Model") then return item:GetPivot().Position end
@@ -70,9 +67,6 @@ local function playAnimation(animationId)
     return track
 end
 
--- ========================================== --
--- AUTO EQUIP LOGIC
--- ========================================== --
 function Model.EquipRod()
     local character = player.Character
     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -96,9 +90,6 @@ function Model.EquipRod()
     end
 end
 
--- ========================================== --
--- TRAVEL AND PHYSICS LOGIC
--- ========================================== --
 function Model.EnableFlight()
     local character = player.Character
     if not character then return end
@@ -206,9 +197,6 @@ function Model.HandleMovement(deltaTime)
     rootPart.RotVelocity = Vector3.new(0, 0, 0)
 end
 
--- ========================================== --
--- CORE FISHING LOGIC
--- ========================================== --
 function Model.BuyNearestBait()
     if Model.State.isBuying then return end
     Model.State.isBuying = true
@@ -261,7 +249,7 @@ function Model.CheckInventory()
 end
 
 function Model.DoFishingCycle()
-    print("[AutoFisher] Starting new fishing cycle...")
+    warn("[AutoFisher] Starting new fishing cycle...")
     local character = player.Character
     if not character then return end
     
@@ -272,7 +260,7 @@ function Model.DoFishingCycle()
 
     local throwGoal = rootPart.Position + (rootPart.CFrame.LookVector * 20) + Vector3.new(0, -5, 0)
 
-    print("[AutoFisher] Throwing bait...")
+    warn("[AutoFisher] Throwing bait...")
     pcall(function() Remote:InvokeServer({Bait = BAIT_NAME, Action = "Throw", Goal = throwGoal}) end)
 
     local throwTrack = playAnimation(THROW_ANIMATION_ID)
@@ -280,20 +268,26 @@ function Model.DoFishingCycle()
 
     -- === SMART FISH DETECTION ===
     local hookName = player.Name .. "'s hook"
-    print("[AutoFisher] Looking for hook: " .. hookName)
+    warn("[AutoFisher] Looking for hook named: " .. hookName)
     local hook = workspace.Effects:WaitForChild(hookName, 3) 
     
     if hook then
-        print("[AutoFisher] Hook found! Waiting for a bite...")
+        warn("[AutoFisher] Hook found! Waiting for a bite...")
         local maxWaitTime = 15 
         local timeWaited = 0
         local fishDidBite = false
         
         while timeWaited < maxWaitTime do
+            -- Failsafe: if we stopped fishing via the UI, break the loop instantly
+            if not Model.State.isFishing then 
+                warn("[AutoFisher] Fishing was toggled off. Stopping wait.")
+                return 
+            end
+
             if hook:GetAttribute("Caught") == true then
-                print("[AutoFisher] FISH BITE DETECTED! Waiting 3 seconds...")
+                warn("[AutoFisher] FISH BITE DETECTED! Waiting 3 seconds...")
                 task.wait(3)
-                print("[AutoFisher] 3 seconds over! Reeling it in!")
+                warn("[AutoFisher] 3 seconds over! Reeling it in!")
                 fishDidBite = true
                 break 
             end
@@ -303,10 +297,10 @@ function Model.DoFishingCycle()
         end
 
         if not fishDidBite then
-            print("[AutoFisher] Waited 15 seconds but nothing bit. Reeling in anyway.")
+            warn("[AutoFisher] Waited 15 seconds but nothing bit. Reeling in anyway.")
         end
     else
-        print("[AutoFisher] WARNING: Could not find the hook! Doing a standard 9-second wait instead.")
+        warn("[AutoFisher] WARNING: Could not find the hook! Doing a standard 9-second wait instead.")
         task.wait(FISH_WAIT_TIME)
     end
     -- ============================
@@ -314,16 +308,20 @@ function Model.DoFishingCycle()
     local reelTrack = playAnimation(REEL_ANIMATION_ID)
     task.wait(REEL_ANIMATION_TIME)
 
-    print("[AutoFisher] Triggering Reel Action...")
+    warn("[AutoFisher] Triggering Reel Action...")
     pcall(function() Remote:InvokeServer({ Action = "Reel" }) end)
     if reelTrack then reelTrack:Stop(0.2) end
     task.wait(0.2)
     pcall(function() Remote:InvokeServer({ Action = "Cancel" }) end)
-    print("[AutoFisher] Cycle finished.")
+    warn("[AutoFisher] Cycle finished.")
 end
 
 function Model.ListenToInventoryChanges(callback)
-    inventoryObj:GetPropertyChangedSignal("Value"):Connect(callback)
+    -- Disconnect old listener if we re-execute to prevent stacking
+    if Model._inventoryConnection then
+        Model._inventoryConnection:Disconnect()
+    end
+    Model._inventoryConnection = inventoryObj:GetPropertyChangedSignal("Value"):Connect(callback)
 end
 
 return Model
