@@ -285,7 +285,30 @@ function Model.DoFishingCycle()
     local throwTrack = playAnimation(THROW_ANIMATION_ID)
     if throwTrack then task.delay(THROW_ANIMATION_TIME, function() throwTrack:Stop(0.15) end) end
 
-    task.wait(FISH_WAIT_TIME)
+    -- === SMART FISH DETECTION ===
+    -- 1. Find the hook in the water
+    local hookName = player.Name .. "'s hook"
+    local hook = workspace.Effects:WaitForChild(hookName, 3) -- Wait up to 3 seconds for it to spawn
+    
+    if hook then
+        -- 2. Keep watching the hook for up to 15 seconds max (safety net so it doesn't freeze)
+        local maxWaitTime = 15 
+        local timeWaited = 0
+        
+        while timeWaited < maxWaitTime do
+            -- 3. Check the "sticky note" to see if a fish bit right now
+            if hook:GetAttribute("Caught") == true then
+                break -- A fish bit! Stop waiting immediately.
+            end
+            
+            task.wait(0.1) -- Wait just a tiny moment, then check again
+            timeWaited = timeWaited + 0.1
+        end
+    else
+        -- Fallback: If the hook didn't load properly, just do the normal 9-second wait
+        task.wait(FISH_WAIT_TIME)
+    end
+    -- ============================
 
     local reelTrack = playAnimation(REEL_ANIMATION_ID)
     task.wait(REEL_ANIMATION_TIME)
