@@ -1,7 +1,6 @@
 local View = {}
 local Players = game:GetService("Players")
 
--- Notice the new 'startOn' parameter at the end here
 local function createToggle(parent, labelText, activeColor, onToggleCallback, startOn)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 220, 0, 52)
@@ -57,8 +56,6 @@ local function createToggle(parent, labelText, activeColor, onToggleCallback, st
         setToggleState(not isOn, true)
     end)
     
-    -- THIS IS THE MAGIC PART: 
-    -- If 'startOn' is true, pre-click the button instantly
     if startOn then
         setToggleState(true, true)
     end
@@ -114,7 +111,6 @@ function View.Build(callbacks)
 
     local toggleUpdaters = {}
     
-    -- Look at the very end of these lines. Change 'false' to 'true' if you want it on by default!
     toggleUpdaters.Fish = createToggle(content, "Auto Fish\nLovestruck Rod", Color3.fromRGB(0, 180, 255), callbacks.OnFishToggle, false)
     toggleUpdaters.Buy = createToggle(content, "Auto Buy Bait\nBelow 10 -> Buy 290", Color3.fromRGB(80, 200, 80), callbacks.OnBuyToggle, false)
     toggleUpdaters.Sell = createToggle(content, "Auto Sell Fish\nFish count >= 40", Color3.fromRGB(255, 160, 0), callbacks.OnSellToggle, false)
