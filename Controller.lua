@@ -1,3 +1,19 @@
+-- === KILL SWITCH TO PREVENT DUPLICATION ===
+if _G.AutoFisherRunning then
+    -- Turn off the old UI and stop old loops
+    _G.AutoFisherRunning = false 
+    
+    local oldGui = game.Players.LocalPlayer.PlayerGui:FindFirstChild("FishingMenu")
+    if oldGui then oldGui:Destroy() end
+    
+    task.wait(0.5) -- Give the old script half a second to completely shut down
+end
+
+_G.AutoFisherRunning = true
+-- ==========================================
+
+-- (Your normal loadstrings or Controller code goes here)
+
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
