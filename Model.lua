@@ -18,10 +18,7 @@ local MIN_BAIT = 10
 local BUY_AMOUNT = 290
 local BAIT_SEARCH_RADIUS = 25
 local THROW_ANIMATION_ID = "rbxassetid://140322334422224"
-local THROW_ANIMATION_TIME = 0.8
-local FISH_WAIT_TIME = 9
 local REEL_ANIMATION_ID = "rbxassetid://136623058564703"
-local REEL_ANIMATION_TIME = 1.2
 
 local fishToSell = {
     "Crimson Snapper", "Exotic Tigerfin", "Fangfish", 
@@ -214,71 +211,83 @@ function Model.CheckInventory()
     end
 end
 
+-- ==========================================
+-- THE 100% MOUSE-FREE DIRECT SERVER BYPASS
+-- ==========================================
 function Model.DoFishingCycle()
-    warn("[AutoFisher] Starting new fishing cycle...")
+    local hookName = player.Name .. "'s hook"
+    
+    -- If the hook is already in the water, wait and do nothing
+    if workspace.Effects:FindFirstChild(hookName) then
+        task.wait(0.5)
+        return
+    end
+    
     local character = player.Character
     if not character then return end
     
     Model.EquipRod()
+    task.wait(0.2) 
     
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     if not rootPart then return end
 
-    local throwGoal = rootPart.Position + (rootPart.CFrame.LookVector * 20) + Vector3.new(0, -5, 0)
-
-    warn("[AutoFisher] Throwing bait...")
-    pcall(function() Remote:InvokeServer({Bait = BAIT_NAME, Action = "Throw", Goal = throwGoal}) end)
-
+    warn("[AutoFisher] Bypassing minigame. Sending coordinates to server...")
+    
+    -- Play a visual throwing animation just so your character moves
     local throwTrack = playAnimation(THROW_ANIMATION_ID)
-    if throwTrack then task.delay(THROW_ANIMATION_TIME, function() throwTrack:Stop(0.15) end) end
+    if throwTrack then task.delay(0.8, function() throwTrack:Stop(0.15) end) end
 
-    -- === SMART FISH DETECTION ===
-    local hookName = player.Name .. "'s hook"
-    warn("[AutoFisher] Looking for hook named: " .. hookName)
-    local hook = workspace.Effects:WaitForChild(hookName, 3) 
+    -- Automatically calculate exactly 40 studs straight in front of your character
+    local throwGoal = rootPart.Position + (rootPart.CFrame.LookVector * 40) + Vector3.new(0, -5, 0)
+    
+    -- Send the throw message directly to the server, silently attaching your chosen bait
+    pcall(function() 
+        Remote:InvokeServer({
+            Bait = BAIT_NAME, 
+            Action = "Throw", 
+            Goal = throwGoal
+        }) 
+    end)
+
+    -- Wait for the physical hook to spawn in the water
+    local hook = workspace.Effects:WaitForChild(hookName, 3)
     
     if hook then
-        warn("[AutoFisher] Hook found! Waiting for a bite...")
+        warn("[AutoFisher] Hook is in the water. Waiting for a fish...")
         local maxWaitTime = 15 
         local timeWaited = 0
-        local fishDidBite = false
         
         while timeWaited < maxWaitTime do
-            if not Model.State.isFishing then 
-                warn("[AutoFisher] Fishing was toggled off. Stopping wait.")
-                return 
-            end
+            if not Model.State.isFishing then return end
 
+            -- As soon as the fish bites...
             if hook:GetAttribute("Caught") == true then
-                warn("[AutoFisher] FISH BITE DETECTED! Waiting 5 seconds...")
-                task.wait(5)
-                warn("[AutoFisher] 5 seconds over! Reeling it in!")
-                fishDidBite = true
+                warn("[AutoFisher] Fish bit! Starting invisible minigame...")
+                
+                local reelTrack = playAnimation(REEL_ANIMATION_ID)
+                
+                -- === THE INVISIBLE MINIGAME ===
+                -- We wait EXACTLY 3 seconds before claiming the fish!
+                warn("[AutoFisher] Waiting exactly 3 seconds before reeling...")
+                task.wait(3)
+                
+                warn("[AutoFisher] Minigame Complete! Claiming fish...")
+                
+                -- Send the final success command directly to the server
+                pcall(function() Remote:InvokeServer({ Action = "Reel" }) end)
+                
+                if reelTrack then reelTrack:Stop(0.2) end
                 break 
             end
             
             task.wait(0.1) 
             timeWaited = timeWaited + 0.1
         end
-
-        if not fishDidBite then
-            warn("[AutoFisher] Waited 15 seconds but nothing bit. Reeling in anyway.")
-        end
-    else
-        warn("[AutoFisher] WARNING: Could not find the hook! Doing a standard 9-second wait instead.")
-        task.wait(FISH_WAIT_TIME)
     end
-    -- ============================
 
-    local reelTrack = playAnimation(REEL_ANIMATION_ID)
-    task.wait(REEL_ANIMATION_TIME)
-
-    warn("[AutoFisher] Triggering Reel Action...")
-    pcall(function() Remote:InvokeServer({ Action = "Reel" }) end)
-    if reelTrack then reelTrack:Stop(0.2) end
-    task.wait(0.2)
     pcall(function() Remote:InvokeServer({ Action = "Cancel" }) end)
-    warn("[AutoFisher] Cycle finished.")
+    task.wait(1.5) -- Wait a moment before casting the next line
 end
 
 function Model.ListenToInventoryChanges(callback)
