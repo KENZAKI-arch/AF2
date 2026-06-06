@@ -19,7 +19,6 @@ local BUY_AMOUNT = 290
 local BAIT_SEARCH_RADIUS = 25
 local THROW_ANIMATION_ID = "rbxassetid://140322334422224"
 local THROW_ANIMATION_TIME = 0.8
-local FISH_WAIT_TIME = 9
 local REEL_ANIMATION_ID = "rbxassetid://136623058564703"
 local REEL_ANIMATION_TIME = 1.2
 
@@ -298,7 +297,7 @@ function Model.DoFishingCycle()
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     if not rootPart then return end
 
-    -- 1. Calculate where to throw and send the command
+    -- 1. Throw the bobber
     local throwGoal = rootPart.Position + (rootPart.CFrame.LookVector * 20) + Vector3.new(0, -5, 0)
     print("[AutoFisher] Casting line out...")
     pcall(function() Remote:InvokeServer({Bait = BAIT_NAME, Action = "Throw", Goal = throwGoal}) end)
@@ -306,47 +305,45 @@ function Model.DoFishingCycle()
     local throwTrack = playAnimation(THROW_ANIMATION_ID)
     if throwTrack then task.delay(THROW_ANIMATION_TIME, function() throwTrack:Stop(0.15) end) end
 
-    -- Wait just a split second to give the server time to spawn the hook into the world
     task.wait(0.5) 
 
-    -- 2. Find your specific hook in the workspace
+    -- 2. Find the hook
     local hookName = player.Name .. "'s hook"
     local hook = workspace.Effects:FindFirstChild(hookName)
     
-    -- 3. The Smart Stopwatch Logic
+    -- 3. Wait for bite, THEN wait 5 seconds
     if hook then
-        print("[AutoFisher] Bobber detected in water. Waiting for a bite...")
-        local maxWaitTime = 9
-        local timeWaited = 0
+        print("[AutoFisher] Bobber detected. Waiting for a fish to bite...")
         local caught = false
+        local waitTimeout = 0
         
-        -- Check the hook every 0.1 seconds
-        while timeWaited < maxWaitTime do
-            -- If the 'Caught' attribute turns true, a fish bit! Break the loop instantly.
+        -- Watch the bobber every 0.1 seconds
+        -- (We cap this at 30 seconds just in case the game glitches, so your script never gets permanently stuck)
+        while waitTimeout < 30 do
             if hook:GetAttribute("Caught") then
-                print("[AutoFisher] A FISH BIT THE HOOK! Reeling in instantly!")
                 caught = true
-                break 
+                print("[AutoFisher] Fish is on the hook! Waiting exactly 5 seconds...")
+                break
             end
-            
-            -- Add 0.1 to our stopwatch and wait before checking again
-            timeWaited = timeWaited + task.wait(0.1)
+            waitTimeout = waitTimeout + task.wait(0.1)
         end
         
-        if not caught then
-            print("[AutoFisher] Waited 5 seconds with no bite. Reeling in to try again.")
+        -- If it caught a fish, wait the 5 seconds you requested
+        if caught then
+            task.wait(5)
+        else
+            print("[AutoFisher] No bite after 30 seconds. Restarting cycle.")
         end
     else
-        -- Fallback: If for some reason the script couldn't find the hook, just wait 5 seconds.
-        print("[AutoFisher] WARNING: Could not find bobber in workspace. Waiting 5 seconds default.")
-        task.wait(5)
+        print("[AutoFisher] Could not find bobber. Waiting default 9 seconds.")
+        task.wait(9)
     end
 
     -- 4. Reel it in
     local reelTrack = playAnimation(REEL_ANIMATION_ID)
     task.wait(REEL_ANIMATION_TIME)
 
-    print("[AutoFisher] Reeling finished. Ending cycle.")
+    print("[AutoFisher] Reeling in now.")
     pcall(function() Remote:InvokeServer({ Action = "Reel" }) end)
     if reelTrack then reelTrack:Stop(0.2) end
     
