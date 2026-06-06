@@ -298,7 +298,7 @@ function Model.DoFishingCycle()
         while timeWaited < maxWaitTime do
             -- 3. Check the "sticky note" to see if a fish bit right now
             if hook:GetAttribute("Caught") == true then
-                task.wait(6) -- Added: Wait exactly 3 seconds after the fish bites
+                task.wait(7) -- Added: Wait exactly 3 seconds after the fish bites
                 break -- Now stop waiting and proceed to reel it in.
             end
             
