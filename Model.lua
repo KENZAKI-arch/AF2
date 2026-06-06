@@ -80,7 +80,7 @@ function Model.EquipRod()
 
     for _, tool in ipairs(character:GetChildren()) do
         if tool:IsA("Tool") and table.find(VALID_RODS, tool.Name) then
-            return 
+            return -- Already equipped
         end
     end
 
@@ -88,6 +88,7 @@ function Model.EquipRod()
     if backpack then
         for _, tool in ipairs(backpack:GetChildren()) do
             if tool:IsA("Tool") and table.find(VALID_RODS, tool.Name) then
+                print("[AutoFisher] Equipping rod:", tool.Name)
                 humanoid:EquipTool(tool)
                 task.wait(0.2) 
                 return
@@ -106,6 +107,7 @@ function Model.EnableFlight()
     local humanoid = character:FindFirstChild("Humanoid")
     
     if rootPart and humanoid then
+        print("[AutoFisher] Enabling flight to travel to bait...")
         humanoid.PlatformStand = true 
         local bg = rootPart:FindFirstChild("AutoTravel_Gyro") or Instance.new("BodyGyro")
         bg.Name, bg.P, bg.MaxTorque, bg.CFrame, bg.Parent = "AutoTravel_Gyro", 9e4, Vector3.new(9e9, 9e9, 9e9), rootPart.CFrame, rootPart
@@ -127,7 +129,10 @@ function Model.DisableFlight()
         local bv = rootPart:FindFirstChild("AutoTravel_Velocity")
         if bv then bv:Destroy() end
     end
-    if humanoid then humanoid.PlatformStand = false end
+    if humanoid then 
+        humanoid.PlatformStand = false 
+        print("[AutoFisher] Flight disabled.")
+    end
 end
 
 function Model.GetFreeBaitPosition()
@@ -172,10 +177,15 @@ function Model.GetFreeBaitPosition()
                     end
                 end
                 
-                if not isOccupied then return safeSpot end
+                if not isOccupied then 
+                    print("[AutoFisher] Found a free bait pedestal at:", safeSpot)
+                    return safeSpot 
+                end
             end
         end
     end
+    
+    print("[AutoFisher] Could not find any free bait pedestals.")
     return nil
 end
 
@@ -199,6 +209,7 @@ function Model.HandleMovement(deltaTime)
         
     else
         -- Arrived exactly on the pedestal!
+        print("[AutoFisher] Arrived at bait pedestal successfully!")
         Model.State.isAutoTraveling = false
         Model.DisableFlight()
         Model.State.travelMessage = "Arrived at Bait"
@@ -222,6 +233,8 @@ function Model.BuyNearestBait()
     if Model.State.isBuying then return end
     Model.State.isBuying = true
 
+    print("[AutoFisher] Bait is low! Attempting to buy more...")
+
     local character = player.Character or player.CharacterAdded:Wait()
     local rootPart = character:WaitForChild("HumanoidRootPart")
     local nearestBait = nil
@@ -241,11 +254,15 @@ function Model.BuyNearestBait()
     end
 
     if nearestBait then
+        print("[AutoFisher] Buying 290 bait from nearest shop...")
         pcall(function()
             if shopEvent:IsA("RemoteFunction") then shopEvent:InvokeServer(nearestBait, BUY_AMOUNT)
             else shopEvent:FireServer(nearestBait, BUY_AMOUNT) end
         end)
+    else
+        print("[AutoFisher] Could not find a bait shop nearby.")
     end
+    
     task.wait(0.5)
     Model.State.isBuying = false
 end
@@ -256,13 +273,16 @@ function Model.CheckInventory()
 
     if Model.State.autoBuy and not Model.State.isBuying then
         local count = inventoryData[BAIT_NAME] or 0
-        if count < MIN_BAIT then Model.BuyNearestBait() end
+        if count < MIN_BAIT then 
+            Model.BuyNearestBait() 
+        end
     end
 
     if Model.State.autoSell then
         for _, fishName in ipairs(fishToSell) do
             local count = inventoryData[fishName] or 0
             if count >= 40 then
+                print("[AutoFisher] Fish limit reached! Selling all:", fishName)
                 pcall(function() sellEvent:InvokeServer({Fish = fishName, All = true, Method = "SellFish"}) end)
             end
         end
@@ -280,6 +300,7 @@ function Model.DoFishingCycle()
 
     -- 1. Calculate where to throw and send the command
     local throwGoal = rootPart.Position + (rootPart.CFrame.LookVector * 20) + Vector3.new(0, -5, 0)
+    print("[AutoFisher] Casting line out...")
     pcall(function() Remote:InvokeServer({Bait = BAIT_NAME, Action = "Throw", Goal = throwGoal}) end)
 
     local throwTrack = playAnimation(THROW_ANIMATION_ID)
@@ -294,21 +315,30 @@ function Model.DoFishingCycle()
     
     -- 3. The Smart Stopwatch Logic
     if hook then
+        print("[AutoFisher] Bobber detected in water. Waiting for a bite...")
         local maxWaitTime = 5
         local timeWaited = 0
+        local caught = false
         
         -- Check the hook every 0.1 seconds
         while timeWaited < maxWaitTime do
             -- If the 'Caught' attribute turns true, a fish bit! Break the loop instantly.
             if hook:GetAttribute("Caught") then
+                print("[AutoFisher] A FISH BIT THE HOOK! Reeling in instantly!")
+                caught = true
                 break 
             end
             
             -- Add 0.1 to our stopwatch and wait before checking again
             timeWaited = timeWaited + task.wait(0.1)
         end
+        
+        if not caught then
+            print("[AutoFisher] Waited 5 seconds with no bite. Reeling in to try again.")
+        end
     else
         -- Fallback: If for some reason the script couldn't find the hook, just wait 5 seconds.
+        print("[AutoFisher] WARNING: Could not find bobber in workspace. Waiting 5 seconds default.")
         task.wait(5)
     end
 
@@ -316,6 +346,7 @@ function Model.DoFishingCycle()
     local reelTrack = playAnimation(REEL_ANIMATION_ID)
     task.wait(REEL_ANIMATION_TIME)
 
+    print("[AutoFisher] Reeling finished. Ending cycle.")
     pcall(function() Remote:InvokeServer({ Action = "Reel" }) end)
     if reelTrack then reelTrack:Stop(0.2) end
     
