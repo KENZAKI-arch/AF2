@@ -250,7 +250,7 @@ function Model.DoFishingCycle()
     Model.State.lastHookedFish = nil -- Clear the previous fish
 
     local hookName = player.Name .. "'s hook"
-    warn("[AutoFisher] Looking for hook named: " .. hookName)
+    warn("[AutoFisher] Looking for hoe named: " .. hookName)
     local hook = workspace.Effects:WaitForChild(hookName, 3) 
     
     if hook then
