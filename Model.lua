@@ -278,20 +278,47 @@ function Model.DoFishingCycle()
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     if not rootPart then return end
 
+    -- 1. Calculate where to throw and send the command
     local throwGoal = rootPart.Position + (rootPart.CFrame.LookVector * 20) + Vector3.new(0, -5, 0)
-
     pcall(function() Remote:InvokeServer({Bait = BAIT_NAME, Action = "Throw", Goal = throwGoal}) end)
 
     local throwTrack = playAnimation(THROW_ANIMATION_ID)
     if throwTrack then task.delay(THROW_ANIMATION_TIME, function() throwTrack:Stop(0.15) end) end
 
-    task.wait(FISH_WAIT_TIME)
+    -- Wait just a split second to give the server time to spawn the hook into the world
+    task.wait(0.5) 
 
+    -- 2. Find your specific hook in the workspace
+    local hookName = player.Name .. "'s hook"
+    local hook = workspace.Effects:FindFirstChild(hookName)
+    
+    -- 3. The Smart Stopwatch Logic
+    if hook then
+        local maxWaitTime = 5
+        local timeWaited = 0
+        
+        -- Check the hook every 0.1 seconds
+        while timeWaited < maxWaitTime do
+            -- If the 'Caught' attribute turns true, a fish bit! Break the loop instantly.
+            if hook:GetAttribute("Caught") then
+                break 
+            end
+            
+            -- Add 0.1 to our stopwatch and wait before checking again
+            timeWaited = timeWaited + task.wait(0.1)
+        end
+    else
+        -- Fallback: If for some reason the script couldn't find the hook, just wait 5 seconds.
+        task.wait(5)
+    end
+
+    -- 4. Reel it in
     local reelTrack = playAnimation(REEL_ANIMATION_ID)
     task.wait(REEL_ANIMATION_TIME)
 
     pcall(function() Remote:InvokeServer({ Action = "Reel" }) end)
     if reelTrack then reelTrack:Stop(0.2) end
+    
     task.wait(0.2)
     pcall(function() Remote:InvokeServer({ Action = "Cancel" }) end)
 end
