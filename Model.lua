@@ -250,7 +250,7 @@ function Model.DoFishingCycle()
             end
 
             if hook:GetAttribute("Caught") == true then
-                warn("[AutoFisher] FISH BITE DETECTED! Waiting 5 seconds...")
+                warn("[AutoFisher] FISH BITE DETECTED! Waiting 7 seconds...")
                 task.wait(7)
                 warn("[AutoFisher] 5 seconds over! Reeling it in!")
                 fishDidBite = true
