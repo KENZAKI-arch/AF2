@@ -12,19 +12,6 @@ local statsFolder = ReplicatedStorage:WaitForChild("Stats" .. player.Name, 9e9)
 local inventoryObj = statsFolder:WaitForChild("Inventory", 9e9):WaitForChild("Inventory", 9e9)
 local Remote = ReplicatedStorage:WaitForChild("Fishing", 9e9):WaitForChild("Remotes", 9e9):WaitForChild("Action", 9e9)
 
--- === NEW: INTERCEPT THE FISH DATA ===
-local FishCaughtModule = require(ReplicatedStorage:WaitForChild("Fishing", 9e9):WaitForChild("Assets", 9e9):WaitForChild("FishCaught", 9e9))
-local originalFishStart = FishCaughtModule.start
-
-FishCaughtModule.start = function(self, data)
-    if data and data.Reward then
-        -- Secretly save the fish name to our State before the game throws it away
-        Model.State.lastHookedFish = data.Reward
-    end
-    return originalFishStart(self, data)
-end
--- ====================================
-
 -- Constants
 local BAIT_NAME = "Common Fish Bait"
 local MIN_BAIT = 10
@@ -46,8 +33,7 @@ local VALID_RODS = { "Devil Fruit Rod", "Merchants Banana Rod", "Lovestruck Rod"
 
 Model.State = {
     isFishing = false, autoBuy = false, autoSell = false,
-    isBuying = false, isAutoTraveling = false, targetPos = nil, travelMessage = "",
-    lastHookedFish = nil -- NEW: Holds the intercepted fish name
+    isBuying = false, isAutoTraveling = false, targetPos = nil, travelMessage = ""
 }
 
 local function getItemPosition(item)
@@ -247,10 +233,8 @@ function Model.DoFishingCycle()
     if throwTrack then task.delay(THROW_ANIMATION_TIME, function() throwTrack:Stop(0.15) end) end
 
     -- === SMART FISH DETECTION ===
-    Model.State.lastHookedFish = nil -- Clear the previous fish
-
     local hookName = player.Name .. "'s hook"
-    warn("[AutoFisher] Looking for hoe named: " .. hookName)
+    warn("[AutoFisher] Looking for hook named: " .. hookName)
     local hook = workspace.Effects:WaitForChild(hookName, 3) 
     
     if hook then
@@ -266,17 +250,9 @@ function Model.DoFishingCycle()
             end
 
             if hook:GetAttribute("Caught") == true then
-                -- Wait a split second so the name finishes saving
-                task.wait(0.1) 
-                
-                -- Read the fish name!
-                local fishName = Model.State.lastHookedFish or "Unknown"
-                warn("[AutoFisher] BITE DETECTED! We hooked a: " .. tostring(fishName))
-                
-                -- If you ever want to auto-cancel trash fish, you can add it right here later
-                
+                warn("[AutoFisher] FISH BITE DETECTED! Waiting 5 seconds...")
                 task.wait(5)
-                warn("[AutoFisher] 5 seconds over! Reeling in the " .. tostring(fishName) .. "!")
+                warn("[AutoFisher] 5 seconds over! Reeling it in!")
                 fishDidBite = true
                 break 
             end
