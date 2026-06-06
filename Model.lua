@@ -322,7 +322,7 @@ function Model.DoFishingCycle()
         while waitTimeout < 30 do
             if hook:GetAttribute("Caught") then
                 caught = true
-                print("[AutoFisher] Fish is on the hook! Waiting exactly 5 seconds...")
+                print("[AutoFisher] Fish is on the hook! Waiting exactly 6 seconds...")
                 break
             end
             waitTimeout = waitTimeout + task.wait(0.1)
