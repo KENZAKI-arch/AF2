@@ -2,13 +2,14 @@ local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
--- Make sure your GitHub files are updated first, or this will download the old code!
 local Model = loadstring(game:HttpGet("https://raw.githubusercontent.com/KENZAKI-arch/AF2/refs/heads/main/Model.lua"))()
 local View = loadstring(game:HttpGet("https://raw.githubusercontent.com/KENZAKI-arch/AF2/refs/heads/main/View.lua"))()
 
+-- AFK Timer Variables
 local isAFKModeActive = false
 local secondsSinceLastInput = 0
 
+-- Reset the stopwatch whenever the player moves their mouse or types
 UserInputService.InputBegan:Connect(function() secondsSinceLastInput = 0 end)
 UserInputService.InputChanged:Connect(function() secondsSinceLastInput = 0 end)
 
@@ -44,7 +45,7 @@ local uiHandle = View.Build({
     end,
     OnAFKToggle = function(isOn)
         isAFKModeActive = isOn
-        secondsSinceLastInput = 0 
+        secondsSinceLastInput = 0 -- Restart the timer as soon as you turn it on
     end,
     OnClose = function()
         Model.State.isFishing = false
@@ -56,18 +57,27 @@ local uiHandle = View.Build({
     end
 })
 
+-- =======================================
+-- THE AFK STOPWATCH LOOP
+-- =======================================
 task.spawn(function()
     while task.wait(1) do
         if isAFKModeActive then
             secondsSinceLastInput = secondsSinceLastInput + 1
+            
+            -- If 20 seconds pass with no movement, pull the trigger
             if secondsSinceLastInput == 20 then
+                -- Turns on Travel, Buy, and Sell instantly
                 uiHandle.ForceTogglesOn()
+                
+                -- Leaves a reminder to start fishing once we finish traveling
                 Model.State.waitingForArrivalToFish = true
             end
         end
     end
 end)
 
+-- Travel Loop & Noclip
 RunService.Stepped:Connect(function()
     if Model.State.isAutoTraveling then
         local char = Players.LocalPlayer.Character
@@ -98,7 +108,8 @@ task.spawn(function()
 end)
 
 task.spawn(function()
-    while task.wait() do
+    while true do
+        task.wait()
         if Model.State.isFishing then
             Model.DoFishingCycle()
         end
@@ -116,10 +127,13 @@ task.spawn(function()
         if Model.State.isAutoTraveling or Model.State.travelMessage ~= "" then
             uiHandle.UpdateStatus("Status: " .. Model.State.travelMessage)
             if Model.State.travelMessage == "Arrived at Bait" or Model.State.travelMessage == "All Baits Full" then
+                
+                -- If we just arrived, and AFK is waiting, start fishing!
                 if Model.State.travelMessage == "Arrived at Bait" and Model.State.waitingForArrivalToFish then
                     Model.State.waitingForArrivalToFish = false
                     uiHandle.ForceFishOn()
                 end
+                
                 task.delay(3, function() Model.State.travelMessage = "" end)
             end
         else
