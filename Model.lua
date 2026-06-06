@@ -330,7 +330,7 @@ function Model.DoFishingCycle()
         
         -- If it caught a fish, wait the 5 seconds you requested
         if caught then
-            task.wait(5)
+            task.wait(6)
         else
             print("[AutoFisher] No bite after 30 seconds. Restarting cycle.")
         end
