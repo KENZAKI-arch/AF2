@@ -29,13 +29,26 @@ local fishToSell = {
     "Tigerfin", "Crimson Polka Puffer"
 }
 
-local VALID_RODS = { "Devil Fruit Rod", "Merchants Banana Rod", "Lovestruck Rod", "Fishing Rod" }
-
-Model.State = {
-    isFishing = false, autoBuy = false, autoSell = false,
-    isBuying = false, isAutoTraveling = false, targetPos = nil, travelMessage = ""
+-- The list of valid rods to look for
+local VALID_RODS = {
+    "Devil Fruit Rod", 
+    "Merchants Banana Rod", 
+    "Lovestruck Rod", 
+    "Fishing Rod"
 }
 
+-- State Data
+Model.State = {
+    isFishing = false,
+    autoBuy = false,
+    autoSell = false,
+    isBuying = false,
+    isAutoTraveling = false,
+    targetPos = nil,
+    travelMessage = ""
+}
+
+-- Helper Functions
 local function getItemPosition(item)
     if item:IsA("BasePart") then return item.Position end
     if item:IsA("Model") then return item:GetPivot().Position end
@@ -47,6 +60,7 @@ local function playAnimation(animationId)
     local character = player.Character
     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
     if not humanoid then return nil end
+    
     local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
     local anim = Instance.new("Animation")
     anim.AnimationId = animationId
@@ -56,13 +70,18 @@ local function playAnimation(animationId)
     return track
 end
 
+-- ========================================== --
+-- AUTO EQUIP LOGIC
+-- ========================================== --
 function Model.EquipRod()
     local character = player.Character
     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
     if not humanoid then return end
 
     for _, tool in ipairs(character:GetChildren()) do
-        if tool:IsA("Tool") and table.find(VALID_RODS, tool.Name) then return end
+        if tool:IsA("Tool") and table.find(VALID_RODS, tool.Name) then
+            return 
+        end
     end
 
     local backpack = player:FindFirstChild("Backpack")
@@ -77,15 +96,20 @@ function Model.EquipRod()
     end
 end
 
+-- ========================================== --
+-- TRAVEL AND PHYSICS LOGIC
+-- ========================================== --
 function Model.EnableFlight()
     local character = player.Character
     if not character then return end
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     local humanoid = character:FindFirstChild("Humanoid")
+    
     if rootPart and humanoid then
         humanoid.PlatformStand = true 
         local bg = rootPart:FindFirstChild("AutoTravel_Gyro") or Instance.new("BodyGyro")
         bg.Name, bg.P, bg.MaxTorque, bg.CFrame, bg.Parent = "AutoTravel_Gyro", 9e4, Vector3.new(9e9, 9e9, 9e9), rootPart.CFrame, rootPart
+        
         local bv = rootPart:FindFirstChild("AutoTravel_Velocity") or Instance.new("BodyVelocity")
         bv.Name, bv.Velocity, bv.MaxForce, bv.Parent = "AutoTravel_Velocity", Vector3.new(0, 0, 0), Vector3.new(9e9, 9e9, 9e9), rootPart
     end
@@ -96,6 +120,7 @@ function Model.DisableFlight()
     if not character then return end
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     local humanoid = character:FindFirstChild("Humanoid")
+    
     if rootPart then
         local bg = rootPart:FindFirstChild("AutoTravel_Gyro")
         if bg then bg:Destroy() end
@@ -107,23 +132,36 @@ end
 
 function Model.GetFreeBaitPosition()
     if not buyableItems then return nil end
+    
+    -- Hub Fence: Find the exact center of the Fishing Hub Island
     local islandsFolder = workspace:FindFirstChild("Islands")
     local fishingHub = islandsFolder and islandsFolder:FindFirstChild("Fishing Hub")
     local hubCenterPos = nil
+    
     if fishingHub then
         local hubPart = fishingHub:IsA("Model") and fishingHub.PrimaryPart or fishingHub:FindFirstChildWhichIsA("BasePart", true)
-        if hubPart then hubCenterPos = hubPart.Position end
+        if hubPart then
+            hubCenterPos = hubPart.Position
+        end
     end
 
     for _, item in pairs(buyableItems:GetChildren()) do
         if item.Name == BAIT_NAME then
             local baitCFrame = item:IsA("Model") and item.PrimaryPart.CFrame or item.CFrame
             local baitPosition = baitCFrame.Position
+            
             local isLocalBait = true
-            if hubCenterPos and (baitPosition - hubCenterPos).Magnitude > 1000 then isLocalBait = false end
+            
+            -- CHECK: Is it too far from the hub? (Prevents flying to other islands)
+            if hubCenterPos and (baitPosition - hubCenterPos).Magnitude > 1000 then
+                isLocalBait = false
+            end
+            
             if isLocalBait then
+                -- THE PEDESTAL TARGET: Calculates a safe spot exactly 4 studs ABOVE the bait
                 local safeSpot = baitPosition + Vector3.new(0, 4, 0)
                 local isOccupied = false
+
                 for _, plr in pairs(Players:GetPlayers()) do
                     if plr ~= player and plr.Character then
                         local root = plr.Character:FindFirstChild("HumanoidRootPart")
@@ -133,6 +171,7 @@ function Model.GetFreeBaitPosition()
                         end
                     end
                 end
+                
                 if not isOccupied then return safeSpot end
             end
         end
@@ -143,14 +182,23 @@ end
 function Model.HandleMovement(deltaTime)
     local rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
     if not rootPart or not Model.State.targetPos then return end
+
     local currentPos = rootPart.Position
     local target = Model.State.targetPos
     local nextPoint
     
-    if math.abs(currentPos.X - target.X) > 1 then nextPoint = Vector3.new(target.X, currentPos.Y, currentPos.Z)
-    elseif math.abs(currentPos.Z - target.Z) > 1 then nextPoint = Vector3.new(target.X, currentPos.Y, target.Z)
-    elseif math.abs(currentPos.Y - target.Y) > 1 then nextPoint = Vector3.new(target.X, target.Y, target.Z)
+    -- Simple Straight-Line Lerp Logic (X -> Z -> Y)
+    if math.abs(currentPos.X - target.X) > 1 then
+        nextPoint = Vector3.new(target.X, currentPos.Y, currentPos.Z)
+        
+    elseif math.abs(currentPos.Z - target.Z) > 1 then
+        nextPoint = Vector3.new(target.X, currentPos.Y, target.Z)
+        
+    elseif math.abs(currentPos.Y - target.Y) > 1 then
+        nextPoint = Vector3.new(target.X, target.Y, target.Z)
+        
     else
+        -- Arrived exactly on the pedestal!
         Model.State.isAutoTraveling = false
         Model.DisableFlight()
         Model.State.travelMessage = "Arrived at Bait"
@@ -162,13 +210,18 @@ function Model.HandleMovement(deltaTime)
         local alpha = math.clamp((90 * deltaTime) / distance, 0, 1)
         rootPart.CFrame = rootPart.CFrame:Lerp(CFrame.new(nextPoint), alpha)
     end
+    
     rootPart.Velocity = Vector3.new(0, 0, 0)
     rootPart.RotVelocity = Vector3.new(0, 0, 0)
 end
 
+-- ========================================== --
+-- CORE FISHING LOGIC
+-- ========================================== --
 function Model.BuyNearestBait()
     if Model.State.isBuying then return end
     Model.State.isBuying = true
+
     local character = player.Character or player.CharacterAdded:Wait()
     local rootPart = character:WaitForChild("HumanoidRootPart")
     local nearestBait = nil
@@ -200,10 +253,12 @@ end
 function Model.CheckInventory()
     local success, inventoryData = pcall(function() return HttpService:JSONDecode(inventoryObj.Value) end)
     if not success or not inventoryData then return end
+
     if Model.State.autoBuy and not Model.State.isBuying then
         local count = inventoryData[BAIT_NAME] or 0
         if count < MIN_BAIT then Model.BuyNearestBait() end
     end
+
     if Model.State.autoSell then
         for _, fishName in ipairs(fishToSell) do
             local count = inventoryData[fishName] or 0
@@ -215,7 +270,6 @@ function Model.CheckInventory()
 end
 
 function Model.DoFishingCycle()
-    warn("[AutoFisher] Starting new fishing cycle...")
     local character = player.Character
     if not character then return end
     
@@ -226,46 +280,33 @@ function Model.DoFishingCycle()
 
     local throwGoal = rootPart.Position + (rootPart.CFrame.LookVector * 20) + Vector3.new(0, -5, 0)
 
-    warn("[AutoFisher] Throwing bait...")
     pcall(function() Remote:InvokeServer({Bait = BAIT_NAME, Action = "Throw", Goal = throwGoal}) end)
 
     local throwTrack = playAnimation(THROW_ANIMATION_ID)
     if throwTrack then task.delay(THROW_ANIMATION_TIME, function() throwTrack:Stop(0.15) end) end
 
     -- === SMART FISH DETECTION ===
+    -- 1. Find the hook in the water
     local hookName = player.Name .. "'s hook"
-    warn("[AutoFisher] Looking for hook named: " .. hookName)
-    local hook = workspace.Effects:WaitForChild(hookName, 3) 
+    local hook = workspace.Effects:WaitForChild(hookName, 3) -- Wait up to 3 seconds for it to spawn
     
     if hook then
-        warn("[AutoFisher] Hook found! Waiting for a bite...")
+        -- 2. Keep watching the hook for up to 15 seconds max (safety net so it doesn't freeze)
         local maxWaitTime = 15 
         local timeWaited = 0
-        local fishDidBite = false
         
         while timeWaited < maxWaitTime do
-            if not Model.State.isFishing then 
-                warn("[AutoFisher] Fishing was toggled off. Stopping wait.")
-                return 
-            end
-
+            -- 3. Check the "sticky note" to see if a fish bit right now
             if hook:GetAttribute("Caught") == true then
-                warn("[AutoFisher] FISH BITE DETECTED! Waiting 7 seconds...")
-                task.wait(7)
-                warn("[AutoFisher] 5 seconds over! Reeling it in!")
-                fishDidBite = true
-                break 
+                task.wait(3) -- Added: Wait exactly 3 seconds after the fish bites
+                break -- Now stop waiting and proceed to reel it in.
             end
             
-            task.wait(0.1) 
+            task.wait(0.1) -- Wait just a tiny moment, then check again
             timeWaited = timeWaited + 0.1
         end
-
-        if not fishDidBite then
-            warn("[AutoFisher] Waited 15 seconds but nothing bit. Reeling in anyway.")
-        end
     else
-        warn("[AutoFisher] WARNING: Could not find the hook! Doing a standard 9-second wait instead.")
+        -- Fallback: If the hook didn't load properly, just do the normal 9-second wait
         task.wait(FISH_WAIT_TIME)
     end
     -- ============================
@@ -273,17 +314,14 @@ function Model.DoFishingCycle()
     local reelTrack = playAnimation(REEL_ANIMATION_ID)
     task.wait(REEL_ANIMATION_TIME)
 
-    warn("[AutoFisher] Triggering Reel Action...")
     pcall(function() Remote:InvokeServer({ Action = "Reel" }) end)
     if reelTrack then reelTrack:Stop(0.2) end
     task.wait(0.2)
     pcall(function() Remote:InvokeServer({ Action = "Cancel" }) end)
-    warn("[AutoFisher] Cycle finished.")
 end
 
 function Model.ListenToInventoryChanges(callback)
-    if Model._inventoryConnection then Model._inventoryConnection:Disconnect() end
-    Model._inventoryConnection = inventoryObj:GetPropertyChangedSignal("Value"):Connect(callback)
+    inventoryObj:GetPropertyChangedSignal("Value"):Connect(callback)
 end
 
 return Model
