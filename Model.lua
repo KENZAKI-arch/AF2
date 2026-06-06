@@ -316,7 +316,7 @@ function Model.DoFishingCycle()
     -- 3. The Smart Stopwatch Logic
     if hook then
         print("[AutoFisher] Bobber detected in water. Waiting for a bite...")
-        local maxWaitTime = 5
+        local maxWaitTime = 9
         local timeWaited = 0
         local caught = false
         
