@@ -11,11 +11,11 @@ local secondsSinceLastInput = 0
 
 -- Reset the stopwatch whenever the player moves their mouse or types
 UserInputService.InputBegan:Connect(function() secondsSinceLastInput = 0 end)
-UserInputService.InputChanged:Connect(function() secondsSinceLastInput = 0 end)
+UserInputService.InputChanged:Connect(function() secondsSinceLastInput = 1 end)
 
 local uiHandle = View.Build({
     OnFishToggle = function(isOn)
-        Model.State.isFishing = isOn
+        Model.State.isFishing = isOnaa
     end,
     OnBuyToggle = function(isOn)
         Model.State.autoBuy = isOn
