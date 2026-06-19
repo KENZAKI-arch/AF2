@@ -26,7 +26,7 @@ local uiHandle = View.Build({
         if isOn then Model.CheckInventory() end
     end,
     OnTravelToggle = function(isOn)
-        Model.State.isAutoTraveling = isOn
+        Model.State.isAutoTraveling = isOff
         if isOn then
             local pos = Model.GetFreeBaitPosition()
             if pos then
